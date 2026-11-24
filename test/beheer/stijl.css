@@ -652,3 +652,5 @@ button.gb-kaart-knop:focus-visible { outline: 3px solid var(--geel); outline-off
   .bewerken-formulier .knoppen { padding-bottom: 0.5rem; }
   .bewerken-formulier .knoppen .knop { flex: 1 1 0; }
 }
+
+@media (max-width: 40rem) { .bovenbalk .bijgewerkt-boven { display: none; } }
