@@ -219,7 +219,7 @@ body:has(.bewerken-formulier, .begr-formulier, .opslaanbalk) .bon-knop { display
 .knoppen { display: flex; flex-wrap: wrap; gap: 0.625rem; }
 
 .veld { display: flex; flex-direction: column; gap: 0.375rem; font-weight: 800; font-size: 0.9375rem; }
-input[type=text], input[type=search], input[type=email], input[type=number], input[type=date], select, textarea {
+input[type=text], input[type=search], input[type=email], input[type=tel], input[type=number], input[type=date], select, textarea {
   width: 100%; min-height: 48px; padding: 0 0.875rem;
   border: 1.5px solid var(--rand); border-radius: var(--rond-klein);
   font-family: inherit; font-size: 1.0625rem; background: var(--wit); color: var(--inkt);
@@ -646,7 +646,7 @@ button.gb-kaart-knop:focus-visible { outline: 3px solid var(--geel); outline-off
   .kaart-rijen { gap: 0.5rem; }
   .kaart-rij { border: 0; border-top: 1px solid var(--lijn); border-radius: 0; background: transparent; padding: 0.375rem 0 0; gap: 0.5rem; }
   .kaart-rij:first-child { border-top: 0; padding-top: 0; }
-  .kaart-weg { min-width: 44px; min-height: 44px; margin-right: -0.5rem; }
+  .kaart-weg { min-width: 44px; min-height: 44px; margin-right: 0; }
   .kaart-rij .veld, .bewerken-formulier .veld { width: 100%; }
   .kaart-rij .veld input, .kaart-rij .veld textarea, .kaart-rij .veld select, .bewerken-formulier .veld input, .bewerken-formulier .veld textarea, .bewerken-formulier .veld select { width: 100%; box-sizing: border-box; }
   .bewerken-formulier .knoppen { padding-bottom: 0.5rem; }
