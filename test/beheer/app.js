@@ -13,7 +13,7 @@ var NOG_EEN_POGING_MS = 30000;      // blijft er iets in de wachtrij staan, dan 
 var VERVERS_NA_MS = 60000;          // terugkomen op de pagina na zo lang: opnieuw lezen
 // Op de telefoon is er per knop weinig plek: een eigen kortTitel van het scherm, of deze, of de gewone titel.
 var KORTE_TITELS = { geldbronnen: 'Bronnen' };
-var SCHERM_VOLGORDE = ['overzicht', 'kas', 'begroting', 'geldbronnen', 'bon', 'commissie'];
+var SCHERM_VOLGORDE = ['overzicht', 'deelnemers', 'wijkregister', 'kas', 'begroting', 'geldbronnen', 'bon', 'commissie'];
 
 // Pictogrammen: de binnenkant van een svg van 24 bij 24, lijntekening (zoals in de ontwerpen).
 var ICONEN = {
@@ -22,6 +22,8 @@ var ICONEN = {
   begroting: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   geldbronnen: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M15 11.5c3.4.2 6 1.4 6 3V18c0 1.7-2.7 3-6 3-2.3 0-4.3-.6-5.3-1.6"/>',
   bon: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  deelnemers: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.4c1.9.8 3 2.9 3 5.6"/>',
+  wijkregister: '<path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v12h-2M8 9h6M8 13h6"/>',
   commissie: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>',
   uitloggen: '<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4M20 12H9"/>',
   vernieuwen: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>',
@@ -91,6 +93,21 @@ function tijdTekst_(ms) {
 
 function meervoud_(n, een, meer) { return n + ' ' + (n === 1 ? een : meer); }
 
+// ---- deelnemers en wijkregister (direct opgehaald, alleen in het geheugen) ----
+
+// Wist wat de schermen Deelnemers en Wijkregister in het geheugen hebben (uitloggen, een sessiefout of een ander account).
+function vergeetDirecteLadingen_() {
+  if (typeof deelnemersVergeet === 'function') deelnemersVergeet();
+  if (typeof wijkregisterVergeet === 'function') wijkregisterVergeet();
+}
+
+// Vernieuwen: naast de momentopname haalt ook het getoonde scherm zijn eigen gegevens opnieuw op, als het die heeft (scherm.vernieuw).
+function vernieuwKlik_() {
+  synchroniseer_(true);
+  var open = SCHERMEN.filter(function (s) { return s.naam === beheerApp.huidig; })[0];
+  if (open && typeof open.vernieuw === 'function') open.vernieuw();
+}
+
 // ---- schermen en rechten ----
 
 function registreerScherm(scherm) {
@@ -122,6 +139,13 @@ function hashDelen_() {
   return { naam: i < 0 ? h : h.slice(0, i), parameters: new URLSearchParams(i < 0 ? '' : h.slice(i + 1)) };
 }
 
+// Mag je een scherm met direct opgehaalde gegevens niet meer zien (nieuwe rechten), dan gaan die gegevens uit het geheugen.
+function vergeetDirecteLadingenZonderRecht_() {
+  var rechten = rechtenNu_();
+  if (!heeftRecht(rechten, 'deelnemers_zien') && typeof deelnemersVergeet === 'function') deelnemersVergeet();
+  if (!heeftRecht(rechten, 'persoonsgegevens_zien') && typeof wijkregisterVergeet === 'function') wijkregisterVergeet();
+}
+
 function bouwStaat_() {
   var verstuurd = verstuurdOpruim(beheerOpslag, beheerApp.momentopname, Date.now());
   var m = samenvoegMetMomentopname(beheerApp.momentopname, wachtrijLees(beheerOpslag), verstuurd);
@@ -148,6 +172,7 @@ function laadBewaard_() {
 
 function bewaarMomentopname_(gegevens) {
   beheerApp.momentopname = gegevens;
+  vergeetDirecteLadingenZonderRecht_();
   beheerApp.bijgewerktOp = Date.now();
   beheerOpslag.schrijf('momentopname', { op: beheerApp.bijgewerktOp, gegevens: gegevens });
   verstuurdOpruim(beheerOpslag, gegevens, Date.now()); // wat de server nu kent, hoeft niet meer apart te worden getoond
@@ -164,6 +189,7 @@ function inloggenGelukt(antwoord) {
     beheerApp.momentopname = null;
     if (typeof bonVergeet === 'function') bonVergeet();
   if (typeof kasVergeet === 'function') kasVergeet();
+    vergeetDirecteLadingen_();
     if (weg > 0) beheerApp.bericht = 'Er ' + (weg === 1 ? 'stond' : 'stonden') + ' nog ' + meervoud_(weg, 'handeling', 'handelingen') + ' van een ander account op dit apparaat. Die ' + (weg === 1 ? 'is' : 'zijn') + ' niet verstuurd en verwijderd.';
   }
   beheerApp.bezig = false;
@@ -187,6 +213,7 @@ function naarInloggen_(melding) {
   beheerApp.bijgewerktOp = 0;
   beheerApp.pollTot = 0;
   if (typeof kasVergeet === 'function') kasVergeet(); // een open bonfoto hoort niet boven het inlogscherm te blijven staan
+  vergeetDirecteLadingen_(); // deelnemers en wijkregister staan alleen in het geheugen en gaan weg bij een sessiefout
   beheerApp.tekstInloggen = melding || '';
   beheerApp.bezig = false;
   clearTimeout(beheerApp.tijdLezen); clearTimeout(beheerApp.tijdOpnieuw);
@@ -201,6 +228,7 @@ function uitloggen_() {
   beheerApp.momentopname = null;
   if (typeof bonVergeet === 'function') bonVergeet();
   if (typeof kasVergeet === 'function') kasVergeet();
+  vergeetDirecteLadingen_();
   beheerApp.sessie = null;
   beheerApp.bijgewerktOp = 0;
   beheerApp.pollTot = 0;
@@ -389,7 +417,7 @@ function bouwSchil_() {
         el('span', { class: 'gebruiker-naam' }, naam),
         el('span', { class: 'gebruiker-sub' }, beheerApp.sessie.email || '')));
   }
-  var vernieuw = el('button', { type: 'button', class: 'menu-punt', onclick: function () { synchroniseer_(true); } }, maakIcoon('vernieuwen'), el('span', null, 'Vernieuwen'));
+  var vernieuw = el('button', { type: 'button', class: 'menu-punt', onclick: vernieuwKlik_ }, maakIcoon('vernieuwen'), el('span', null, 'Vernieuwen'));
   var uit = el('button', { type: 'button', class: 'menu-punt', onclick: uitloggen_ }, maakIcoon('uitloggen'), el('span', null, 'Uitloggen'));
   app_().replaceChildren(
     el('div', { class: 'schil' },
@@ -402,7 +430,7 @@ function bouwSchil_() {
         el('header', { class: 'bovenbalk' }, merk_(),
           el('span', { class: 'bijgewerkt bijgewerkt-boven', 'aria-hidden': 'true' }),
           el('div', { style: 'display:flex;gap:2px' },
-            el('button', { type: 'button', class: 'icoonknop', 'aria-label': 'Vernieuwen', onclick: function () { synchroniseer_(true); } }, maakIcoon('vernieuwen')),
+            el('button', { type: 'button', class: 'icoonknop', 'aria-label': 'Vernieuwen', onclick: vernieuwKlik_ }, maakIcoon('vernieuwen')),
             el('button', { type: 'button', class: 'icoonknop', 'aria-label': 'Uitloggen', onclick: uitloggen_ }, maakIcoon('uitloggen')))),
         el('main', { class: 'hoofd', id: 'hoofd' },
           el('div', { class: 'hoofd-binnen' },

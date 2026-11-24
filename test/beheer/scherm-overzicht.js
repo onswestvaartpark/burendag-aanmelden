@@ -21,6 +21,7 @@ var OVERZICHT_ACTIES = {
   'betaalstand bijwerken': 'Betaalstand bijgewerkt',
   'bestand opslaan': 'Bestand opgeslagen',
   'register': 'Wijkregister bijgewerkt',
+  'beheerWijkregister': 'Wijkregister bekeken',
   'instellingen': 'Instellingen aangepast',
   'fout': 'Er ging iets mis',
   'koppeling ongedaan': 'Koppeling ongedaan gemaakt',

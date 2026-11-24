@@ -49,3 +49,41 @@ function beheerVerzoek(actie, gegevens) {
     throw fout;
   });
 }
+
+// Een direct opgehaald resultaat dat alleen in het geheugen blijft (nooit in localStorage), zoals de lijst van deelnemers en het wijkregister.
+// maakDirecteLading('beheerDeelnemers') geeft { data, bezig, fout, haal(), vergeet(), bijWijziging } terug:
+// haal() vraagt het opnieuw op (een lopende vraag krijgt zo een nieuw nummer; een laat antwoord op een oudere vraag telt niet meer mee),
+// vergeet() wist alles (uitloggen, een sessiefout of een ander account). bijWijziging() wordt aangeroepen als bezig, data of fout veranderen.
+function maakDirecteLading(actie) {
+  var l = { actie: actie, data: null, bezig: false, fout: '', nr: 0, bijWijziging: null };
+  function meld() { if (typeof l.bijWijziging === 'function') l.bijWijziging(); }
+  l.vergeet = function () { l.nr++; l.data = null; l.bezig = false; l.fout = ''; };
+  l.haal = function () {
+    var nr = ++l.nr;
+    var token = typeof sessieToken_ === 'function' ? sessieToken_() : null;
+    l.bezig = true; l.fout = '';
+    meld();
+    return beheerVerzoek(actie).then(function (a) {
+      if (nr !== l.nr || (typeof sessieToken_ === 'function' && sessieToken_() !== token)) return;
+      l.bezig = false;
+      if (a && a.ok === true) {
+        var kopie = Object.assign({}, a); delete kopie.ok;
+        l.data = kopie;
+      } else if (a && a.code === 'SESSIE') {
+        l.vergeet();
+        if (typeof naarInloggen_ === 'function') naarInloggen_(a.melding || 'Je bent uitgelogd. Log opnieuw in.');
+        return;
+      } else if (a && a.code === 'RECHT') {
+        l.data = null; l.fout = 'Dit mag je niet zien.';
+      } else {
+        l.fout = 'Het ophalen lukt nu niet. Probeer het zo nog eens.';
+      }
+      meld();
+    }, function () {
+      if (nr !== l.nr) return;
+      l.bezig = false; l.fout = 'Geen verbinding. Probeer het zo nog eens.';
+      meld();
+    });
+  };
+  return l;
+}
