@@ -363,8 +363,34 @@ function bonStatus_(o) {
   }
 }
 
+// Mislukte bonnen die de gebruiker heeft verborgen of opnieuw ingediend (alleen opdracht-ids, geen gegevens).
+function bonVerborgen_() {
+  var lijst = beheerOpslag && beheerOpslag.lees ? beheerOpslag.lees('bonVerborgen') : null;
+  return Array.isArray(lijst) ? lijst : [];
+}
+
+function bonVerberg_(id) {
+  var lijst = bonVerborgen_().filter(function (x) { return x !== id; });
+  lijst.push(id);
+  if (beheerOpslag && beheerOpslag.schrijf) beheerOpslag.schrijf('bonVerborgen', lijst.slice(-50));
+  if (bonApp) bonTekenLijst_(bonApp.momentopname);
+}
+
+function bonOpnieuw_(o) {
+  var g = o.gegevens || {};
+  var gegevens = {};
+  ['datum', 'bedrag', 'omschrijving', 'categorie', 'voorgeschotenDoor', 'winkel', 'bestandId'].forEach(function (k) {
+    if (g[k] !== undefined && g[k] !== null && g[k] !== '') gegevens[k] = g[k];
+  });
+  bonApp.stuurOpdracht('bonIndienen', gegevens);
+  bonVerberg_(o.id);
+}
+
 function bonLijstItems_(m) {
-  var lijst = ((m && m.mijnOpdrachten) || []).filter(function (o) { return o.type === 'bonIndienen'; });
+  var verborgen = bonVerborgen_();
+  var lijst = ((m && m.mijnOpdrachten) || []).filter(function (o) {
+    return o.type === 'bonIndienen' && !(o.status === 'fout' && verborgen.indexOf(o.id) !== -1);
+  });
   // nieuwste eerst: wat nog onderweg is (nog geen tijd van de server) bovenaan
   lijst = lijst.map(function (o, i) { return { o: o, i: i }; }).sort(function (a, b) {
     var x = a.o.ontvangenOp || '', y = b.o.ontvangenOp || '';
@@ -390,7 +416,10 @@ function bonTekenLijst_(m) {
           el('div', { class: 'rij-tekst' },
             el('div', { class: 'rij-titel' }, it.bedrag ? '€ ' + it.bedrag : 'Bon'),
             it.omschrijving ? el('div', { class: 'rij-sub' }, it.omschrijving) : null,
-            it.o.status === 'fout' && it.o.melding ? el('div', { class: 'opdracht-melding' }, it.o.melding) : null),
+            it.o.status === 'fout' && it.o.melding ? el('div', { class: 'opdracht-melding' }, it.o.melding) : null,
+            it.o.status === 'fout' && it.o.id ? el('div', { class: 'knoppen', style: 'margin-top:0.5rem' },
+              el('button', { type: 'button', class: 'knop knop-klein', onclick: function () { bonOpnieuw_(it.o); } }, 'Opnieuw indienen'),
+              el('button', { type: 'button', class: 'knop knop-klein', onclick: function () { bonVerberg_(it.o.id); } }, 'Verbergen')) : null),
           el('span', { class: st.klasse }, st.tekst)));
       }));
   bonVak.lijst.replaceChildren(el('h2', null, 'Mijn bonnen'), inhoud);
