@@ -5,15 +5,9 @@
 // De pure functies bovenaan zijn getest met Node (test/bewerken.test.js); de functies met el() staan eronder.
 
 var BEWERKEN_TYPEN = {
-  registerContactOpslaan: 'Contact gewijzigd',
-  registerContactVerwijderen: 'Contact verwijderd',
+  registerAdresOpslaan: 'Adres gewijzigd',
   registerAdresToevoegen: 'Adres toegevoegd',
   deelnemerContactOpslaan: 'Deelnemer gewijzigd',
-  registerBewonerOpslaan: 'Bewoner opgeslagen',
-  registerBewonerVerwijderen: 'Bewoner verwijderd',
-  registerSpullenOpslaan: 'Spul opgeslagen',
-  registerSpullenVerwijderen: 'Spul verwijderd',
-  registerOpmerkingOpslaan: 'Opmerking opgeslagen',
   registerOpschonen: 'Verlopen gegevens wissen'
 };
 

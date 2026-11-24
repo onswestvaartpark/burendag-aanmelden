@@ -593,3 +593,14 @@ button.gb-kaart-knop:focus-visible { outline: 3px solid var(--geel); outline-off
 .wijk-adres { margin-bottom: 0.75rem; }
 .wijk-adres:empty { display: none; }
 .wijk-adres-knop { margin-bottom: 0.5rem; }
+
+/* ---- huishoudkaart: een adres in één formulier wijzigen (fase 2c) ---- */
+.kaart-sectie { border: 1px solid var(--lijn); border-radius: var(--rond-klein); padding: 0.75rem 0.875rem; display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+.kaart-sectie > legend { font-weight: 800; padding: 0 0.375rem; }
+.kaart-rijen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.kaart-rij { border: 1px solid var(--lijn); border-radius: var(--rond-klein); padding: 0.625rem 0.75rem; display: flex; flex-direction: column; gap: 0.625rem; background: var(--wit); }
+.kaart-rijkop { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.kaart-weg { min-width: 44px; min-height: 44px; font-size: 1.25rem; line-height: 1; }
+.kaart-veldfout { color: var(--fout); font-weight: 700; font-size: 0.875rem; }
+.veld input[aria-invalid=true], .veld textarea[aria-invalid=true], .veld select[aria-invalid=true] { border-color: var(--fout); }
+.kaart-verwijderd { margin: 0; }

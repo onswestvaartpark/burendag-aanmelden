@@ -1,20 +1,18 @@
 // Scherm Wijkregister: de adressen van het wijkregister met contacten, personen en de jaren waarin ze meededen.
 // De gegevens komen direct van het achterwerk (beheerWijkregister, recht persoonsgegevens_zien; elke keer wordt dat gelogd), staan
 // alleen in het geheugen en worden niet bewaard op het apparaat.
-// Met ook het recht deelnemer_bewerken kan de commissie contacten corrigeren, toevoegen en verwijderen en een adres toevoegen (fase 2b).
-// Elke wijziging is een opdracht (stuurOpdracht) en staat tot de server klaar is als 'wordt verwerkt' in het geheugen van dit scherm.
-// Vereist app.js (registreerScherm, el, meervoud_), api.js (maakDirecteLading), bewerken.js en huishoudkaart.js (bewoners, spullen, opmerking, deelname, bewaartermijn).
+// Met ook het recht deelnemer_bewerken kan de commissie een adres in één keer wijzigen (knop Wijzigen: contacten, bewoners, spullen en opmerking in één formulier) en een adres toevoegen.
+// Elke wijziging is één opdracht (stuurOpdracht) en staat tot de server klaar is als 'wordt verwerkt' in het geheugen van dit scherm.
+// Vereist app.js (registreerScherm, el), api.js (maakDirecteLading), bewerken.js en huishoudkaart.js (het detail van een adres en het formulier).
 
 var WIJKREGISTER_PAGINA = 60;
 
 var wijkregisterLading = maakDirecteLading('beheerWijkregister');
-// formulier = het open contactformulier, bevestig = het contact waarvan het verwijderen wordt bevestigd, adresFormulier = het formulier 'Adres toevoegen',
-// wacht = opdrachten die dit scherm stuurde en die de server nog niet klaar heeft (alleen in het geheugen)
+// kaart = het open formulier 'Wijzigen' van een adres, adresFormulier = het formulier 'Adres toevoegen', wisBevestig = de vraag voor het wissen van verlopen gegevens,
+// filterVerlopen = alleen adressen met een verlopen bewaartermijn (huishoudkaart.js), wacht = opdrachten die dit scherm stuurde en die de server nog niet klaar heeft (alleen in het geheugen)
 function wijkregisterNieuweStaat_(email) {
-  // kaart = het open formulier van de huishoudkaart (bewoner, spul of opmerking), kaartBevestig = wat verwijderd gaat worden, wisBevestig = de vraag voor het wissen
-  // van verlopen gegevens, filterVerlopen = alleen adressen met een verlopen bewaartermijn (huishoudkaart.js)
-  return { email: email, zoek: '', toon: WIJKREGISTER_PAGINA, open: {}, formulier: null, bevestig: null, adresFormulier: null, wacht: maakBewerkenWacht(), handtekening: '',
-    kaart: null, kaartBevestig: null, wisBevestig: false, filterVerlopen: false };
+  return { email: email, zoek: '', toon: WIJKREGISTER_PAGINA, open: {}, kaart: null, adresFormulier: null, wacht: maakBewerkenWacht(), handtekening: '',
+    wisBevestig: false, filterVerlopen: false };
 }
 var wijkregisterStaat = wijkregisterNieuweStaat_('');
 var wijkregisterVak = null; // { wortel, status, melding, adres, verlopen, lijst, meer }
@@ -70,95 +68,11 @@ function wijkregisterToestemming_(c) {
   return 'Toestemming ' + delen.join(', ');
 }
 
-var WIJKREGISTER_CONTACT_TYPEN = ['registerContactOpslaan', 'registerContactVerwijderen'];
-
-function wijkregisterContactTekst_(c, wacht) {
-  return [el('span', { class: 'rij-titel' }, wijkregisterNaam_(c) || 'Zonder naam'), wacht ? ' ' : null, wacht ? bewerkenWachtLabel(wacht) : null,
-    c.email ? el('div', null, wijkregisterMailLink_(c.email)) : null,
-    c.telefoon ? el('div', null, wijkregisterTelLink_(c.telefoon)) : null,
-    el('div', { class: 'rij-sub' }, wijkregisterToestemming_(c))];
-}
-
-// Een contact in de lijst: gewoon, met een formulier, met de vraag om bevestiging, of als 'wordt verwerkt'.
-function wijkregisterContactRij_(a, c, i, mag) {
-  var s = wijkregisterStaat;
-  var f = s.formulier;
-  if (mag && f && f.soort === 'wijzig' && f.adrescode === a.adrescode && f.index === i) return el('li', null, wijkregisterContactFormulier_(f));
-  var wacht = bewerkenWachtVoor(s.wacht, a.adrescode, WIJKREGISTER_CONTACT_TYPEN).filter(function (w) { return w.gegevens.index === i; });
-  if (wacht.length > 0) {
-    var laatste = wacht[wacht.length - 1];
-    if (laatste.type === 'registerContactVerwijderen') return el('li', { class: 'bewerken-wacht-rij' }, wijkregisterContactTekst_(c, 'wordt verwijderd'));
-    var nieuw = Object.assign({}, c, { voornaam: laatste.gegevens.voornaam, achternaam: laatste.gegevens.achternaam, email: laatste.gegevens.email, telefoon: laatste.gegevens.telefoon });
-    return el('li', { class: 'bewerken-wacht-rij' }, wijkregisterContactTekst_(nieuw, 'wordt verwerkt'));
-  }
-  var delen = wijkregisterContactTekst_(c, null);
-  // zolang er voor dit adres iets wordt verwerkt kloppen de plekken van de contacten niet meer: geen knoppen
-  var bezig = bewerkenWachtVoor(s.wacht, a.adrescode, WIJKREGISTER_CONTACT_TYPEN).length > 0;
-  if (bezig) return el('li', null, delen);
-  if (mag && s.bevestig && s.bevestig.adrescode === a.adrescode && s.bevestig.index === i) {
-    delen.push(el('div', { class: 'strook strook-geel bewerken-bevestig', role: 'alertdialog', 'aria-label': 'Verwijderen bevestigen' },
-      el('span', { class: 'strook-tekst' }, 'Weet je zeker dat je ' + bewerkenNaam(c) + ' uit het wijkregister wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'),
-      el('button', { type: 'button', class: 'knop knop-gevaar bewerken-bevestig-ja', onclick: function () { wijkregisterVerwijder_(a, c, i); } }, 'Ja, verwijderen'),
-      el('button', { type: 'button', class: 'knop', onclick: function () { s.bevestig = null; wijkregisterTekenLijst_(); } }, 'Nee, laat staan')));
-  } else if (mag) {
-    delen.push(el('div', { class: 'knoppen bewerken-knoppen' },
-      el('button', { type: 'button', class: 'knop knop-klein', onclick: function () { wijkregisterOpenContact_({ soort: 'wijzig', adrescode: a.adrescode, index: i, oud: { voornaam: c.voornaam, email: c.email }, voornaam: c.voornaam, achternaam: c.achternaam, email: c.email, telefoon: c.telefoon }); } }, 'Wijzigen'),
-      el('button', { type: 'button', class: 'knop knop-klein knop-gevaar', onclick: function () { s.formulier = null; s.bevestig = { adrescode: a.adrescode, index: i }; wijkregisterTekenLijst_(); } }, 'Verwijderen')));
-  }
-  return el('li', null, delen);
-}
-
 function wijkregisterDetail_(a) {
-  var s = wijkregisterStaat;
-  var mag = wijkregisterMagBewerken_();
-  var delen = [];
-  var contacten = a.contacten || [];
-  var f = s.formulier;
-  var nieuwe = bewerkenWachtVoor(s.wacht, a.adrescode, ['registerContactOpslaan']).filter(function (w) { return w.gegevens.index === undefined; });
-  var lijst = contacten.map(function (c, i) { return wijkregisterContactRij_(a, c, i, mag); });
-  nieuwe.forEach(function (w) {
-    lijst.push(el('li', { class: 'bewerken-wacht-rij' }, wijkregisterContactTekst_(w.gegevens, 'wordt toegevoegd')));
-  });
-  var nieuwFormulier = mag && f && f.soort === 'nieuw' && f.adrescode === a.adrescode;
-  if (nieuwFormulier) lijst.push(el('li', null, wijkregisterContactFormulier_(f)));
-  delen.push(el('div', { class: 'deeln-blok' }, el('strong', null, meervoud_(contacten.length, 'contact', 'contacten')),
-    lijst.length === 0 ? el('div', { class: 'rij-sub' }, 'Geen contact bewaard.') : el('ul', { class: 'deeln-personen' }, lijst),
-    mag && !nieuwFormulier && nieuwe.length === 0 && bewerkenWachtVoor(s.wacht, a.adrescode, WIJKREGISTER_CONTACT_TYPEN).length === 0 ? el('div', { class: 'knoppen bewerken-knoppen' },
-      el('button', { type: 'button', class: 'knop knop-klein', onclick: function () { wijkregisterOpenContact_({ soort: 'nieuw', adrescode: a.adrescode, voornaam: '', achternaam: '', email: '', telefoon: '' }); } }, 'Contact toevoegen')) : null));
-  // de rest van de huishoudkaart (bewoners, spullen, opmerking, deelname) staat in huishoudkaart.js
-  var kaart = kaartBlokken(a, mag);
-  delen.unshift(kaart.bewoners);
-  delen.push(kaart.spullen, kaart.opmerking, kaart.deelname);
-  return el('div', { class: 'deeln-detail' }, delen);
+  return kaartDetail(a, wijkregisterMagBewerken_());
 }
 
 // ---- bewerken ----
-
-function wijkregisterOpenContact_(f) {
-  f.fouten = [];
-  f.focus = true;
-  wijkregisterStaat.formulier = f;
-  wijkregisterStaat.bevestig = null;
-  wijkregisterStaat.kaart = null;
-  wijkregisterStaat.kaartBevestig = null;
-  wijkregisterStaat.open[f.adrescode] = true;
-  wijkregisterTekenLijst_();
-}
-
-function wijkregisterSluitContact_() {
-  wijkregisterStaat.formulier = null;
-  wijkregisterTekenLijst_();
-}
-
-function wijkregisterContactFormulier_(f) {
-  var titel = f.soort === 'wijzig' ? 'Contact wijzigen' : 'Contact toevoegen';
-  var form = bewerkenFormulier({
-    id: 'wijk-contactformulier', titel: titel, velden: bewerkenContactVelden(f, 'wijk-c'), fouten: f.fouten || [],
-    opslaanTekst: 'Opslaan', bijOpslaan: wijkregisterContactOpslaan_, bijAnnuleren: wijkregisterSluitContact_
-  });
-  if (f.focus) { f.focus = false; setTimeout(function () { bewerkenFocus(form); }, 0); }
-  return form;
-}
 
 // Stuurt de opdracht en onthoudt hem in het geheugen van dit scherm, zodat de wijziging meteen als 'wordt verwerkt' te zien is.
 function wijkregisterStuur_(type, gegevens) {
@@ -166,54 +80,26 @@ function wijkregisterStuur_(type, gegevens) {
   bewerkenWachtVoegToe(wijkregisterStaat.wacht, uit.id, type, gegevens);
 }
 
-function wijkregisterContactOpslaan_() {
-  var s = wijkregisterStaat;
-  var f = s.formulier;
-  if (!f || !wijkregisterMagBewerken_()) return;
-  var c = controleerContactGegevens(f);
-  if (c.fouten.length > 0) {
-    f.fouten = c.fouten;
-    wijkregisterTekenLijst_();
-    bewerkenFocusFouten(document.getElementById('wijk-contactformulier'));
-    return;
-  }
-  var gegevens = { adrescode: f.adrescode, voornaam: c.schoon.voornaam, achternaam: c.schoon.achternaam, email: c.schoon.email, telefoon: c.schoon.telefoon };
-  if (f.soort === 'wijzig') { gegevens.index = f.index; gegevens.oud = f.oud; }
-  s.formulier = null;
-  wijkregisterStuur_('registerContactOpslaan', gegevens);
-  wijkregisterTekenLijst_();
-}
-
-function wijkregisterVerwijder_(a, c, i) {
-  if (!wijkregisterMagBewerken_()) return;
-  wijkregisterStaat.bevestig = null;
-  wijkregisterStuur_('registerContactVerwijderen', { adrescode: a.adrescode, index: i, oud: { voornaam: c.voornaam, email: c.email } });
-  wijkregisterTekenLijst_();
-}
-
-function wijkregisterNieuwAdres_() {
-  return { straat: '', huisnummer: '', toevoeging: '', voornaam: '', achternaam: '', email: '', telefoon: '', fouten: [], focus: true };
-}
-
 function wijkregisterStraten_() {
   var m = wijkregisterApp && wijkregisterApp.momentopname;
   return m && Array.isArray(m.straten) ? m.straten : [];
 }
 
-// Het formulier '+ Adres toevoegen' bovenaan: straat (uit de lijst van de straten), huisnummer, toevoeging en het eerste contact.
+// Het formulier '+ Adres toevoegen' bovenaan: dezelfde invoer als Wijzigen (contacten, bewoners, spullen, opmerking), met straat (uit de lijst van de straten), huisnummer en toevoeging erbij.
 function wijkregisterTekenAdres_() {
   if (!wijkregisterVak) return;
   var s = wijkregisterStaat;
   var vak = wijkregisterVak.adres;
   if (!wijkregisterMagBewerken_()) { s.adresFormulier = null; vak.replaceChildren(); return; }
   var f = s.adresFormulier;
-  var knop = el('button', { type: 'button', class: 'knop wijk-adres-knop', 'aria-expanded': f ? 'true' : 'false', 'aria-controls': 'wijk-adresformulier',
-    onclick: function () { s.adresFormulier = f ? null : wijkregisterNieuwAdres_(); wijkregisterTekenAdres_(); } }, '+ Adres toevoegen');
+  var knop = el('button', { type: 'button', class: 'knop wijk-adres-knop', 'aria-expanded': f ? 'true' : 'false', 'aria-controls': 'wijk-n',
+    onclick: function () { if (f) { s.adresFormulier = null; } else { s.adresFormulier = kaartFormulierNieuw(); s.adresFormulier.focus = 'eerste'; } wijkregisterTekenAdres_(); } }, '+ Adres toevoegen');
   var nieuwe = Object.keys(s.wacht.lijst).map(function (id) { return s.wacht.lijst[id]; }).filter(function (w) { return w.type === 'registerAdresToevoegen'; });
   var wachtend = nieuwe.length === 0 ? null : el('ul', { class: 'deeln-personen' }, nieuwe.map(function (w) {
     var g = w.gegevens;
+    var namen = (g.contacten || (g.contact ? [g.contact] : [])).map(wijkregisterNaam_).filter(function (n) { return n !== ''; }).join(', ');
     return el('li', { class: 'bewerken-wacht-rij' }, el('span', { class: 'rij-titel' }, g.straat + ' ' + g.huisnummer + (g.toevoeging || '')), ' ', bewerkenWachtLabel('wordt toegevoegd'),
-      el('div', { class: 'rij-sub' }, (g.contact.voornaam + ' ' + (g.contact.achternaam || '')).trim()));
+      el('div', { class: 'rij-sub' }, namen));
   }));
   var inhoud = [knop, wachtend];
   if (f) inhoud.push(wijkregisterAdresFormulier_(f));
@@ -222,50 +108,19 @@ function wijkregisterTekenAdres_() {
 
 function wijkregisterAdresFormulier_(f) {
   var straten = wijkregisterStraten_();
-  var keuze = el('select', { id: 'wijk-a-straat', onchange: function (e) { f.straat = e.target.value; } },
+  var keuze = el('select', { id: 'wijk-n-straat', onchange: function (e) { f.straat = e.target.value; } },
     el('option', { value: '' }, 'Kies een straat'),
     straten.map(function (naam) { return el('option', { value: naam }, naam); }));
   keuze.value = f.straat;
-  var velden = [
-    bewerkenVeld_('wijk-a-straat', 'Straat', keuze),
-    bewerkenVeld_('wijk-a-huisnummer', 'Huisnummer', bewerkenTekstvak_(f, 'huisnummer', 'wijk-a-huisnummer', { inputmode: 'numeric', maxlength: '5' })),
-    bewerkenVeld_('wijk-a-toevoeging', 'Toevoeging (mag leeg)', bewerkenTekstvak_(f, 'toevoeging', 'wijk-a-toevoeging', { maxlength: '2' }), 'Alleen letters, bijvoorbeeld a of b (hooguit twee).')
-  ].concat(bewerkenContactVelden(f, 'wijk-a'));
-  var form = bewerkenFormulier({
-    id: 'wijk-adresformulier', titel: 'Adres toevoegen, met het eerste contact', velden: velden, fouten: f.fouten || [],
-    opslaanTekst: 'Adres toevoegen', bijOpslaan: wijkregisterAdresOpslaan_, bijAnnuleren: function () { wijkregisterStaat.adresFormulier = null; wijkregisterTekenAdres_(); }
-  });
-  if (f.focus) { f.focus = false; setTimeout(function () { bewerkenFocus(form); }, 0); }
-  return form;
-}
-
-function wijkregisterAdresOpslaan_() {
-  var s = wijkregisterStaat;
-  var f = s.adresFormulier;
-  if (!f || !wijkregisterMagBewerken_()) return;
-  var fouten = [];
-  if (wijkregisterStraten_().indexOf(f.straat) === -1) fouten.push('Kies een straat uit de lijst.');
-  var nr = null;
-  try { nr = controleerHuisnummerEnToevoeging(f.huisnummer, f.toevoeging); } catch (e) { fouten.push(String(e && e.message || e)); }
-  if (nr) {
-    var gezocht = (String(f.straat) + String(nr.huisnummer) + String(nr.toevoeging || '')).replace(/\s+/g, '').toLowerCase();
-    var data = wijkregisterLading.data;
-    var bestaand = data && Array.isArray(data.adressen) ? data.adressen.filter(function (a) {
-      return String(a.adres || '').replace(/\s+/g, '').toLowerCase() === gezocht;
-    })[0] : null;
-    if (bestaand) fouten.push('Dit adres staat al in het wijkregister (' + bestaand.adres + '). Voeg daar een contact toe.');
-  }
-  var c = controleerContactGegevens(f);
-  fouten = fouten.concat(c.fouten);
-  if (fouten.length > 0) {
-    f.fouten = fouten;
-    wijkregisterTekenAdres_();
-    bewerkenFocusFouten(document.getElementById('wijk-adresformulier'));
-    return;
-  }
-  s.adresFormulier = null;
-  wijkregisterStuur_('registerAdresToevoegen', { straat: f.straat, huisnummer: String(nr.huisnummer), toevoeging: nr.toevoeging, contact: c.schoon });
-  wijkregisterTekenAdres_();
+  var fout = function (veld) { return f.fouten && f.fouten.adres && f.fouten.adres[veld] ? f.fouten.adres[veld] : []; };
+  var tekstvak = function (veld, id, opties) { var v = bewerkenTekstvak_(f, veld, id, opties); return v; };
+  var kop = [
+    kaartVeldMetFout_('wijk-n-straat', 'Straat', keuze, fout('straat')),
+    kaartVeldMetFout_('wijk-n-huisnummer', 'Huisnummer', tekstvak('huisnummer', 'wijk-n-huisnummer', { inputmode: 'numeric', maxlength: '5' }), fout('huisnummer')),
+    kaartVeldMetFout_('wijk-n-toevoeging', 'Toevoeging (mag leeg, alleen letters, bijvoorbeeld a of b)', tekstvak('toevoeging', 'wijk-n-toevoeging', { maxlength: '2' }), fout('toevoeging'))
+  ];
+  return kaartAdresFormulier_(f, { id: 'wijk-n', voorvoegsel: 'wijk-n', titel: 'Adres toevoegen', opslaanTekst: 'Adres toevoegen', bijOpslaan: kaartNieuwAdresOpslaan_,
+    bijAnnuleren: function () { wijkregisterStaat.adresFormulier = null; wijkregisterTekenAdres_(); }, hertekenen: wijkregisterTekenAdres_, kop: kop });
 }
 
 function wijkregisterRij_(a) {
@@ -382,7 +237,7 @@ function wijkregisterTeken_(container, staat) {
   var magBewerken = wijkregisterMagBewerken_();
   container.replaceChildren(
     el('header', { class: 'paginakop' }, el('div', null, el('h1', null, 'Wijkregister'),
-      el('p', null, 'De buren die we mogen bewaren: wie er woont, spullen om te lenen en de jaren dat ze meededen.' + (magBewerken ? ' Je kunt contacten, bewoners en spullen corrigeren, toevoegen en verwijderen.' : ' Alleen kijken.')))),
+      el('p', null, 'De buren die we mogen bewaren: wie er woont, spullen om te lenen en de jaren dat ze meededen.' + (magBewerken ? ' Kies een adres en klik op Wijzigen om contacten, bewoners, spullen en de opmerking in één keer aan te passen.' : ' Alleen kijken.')))),
     el('p', { class: 'strook deeln-privacy' }, 'Gegevens van buren: niet delen buiten de commissie.'),
     wijkregisterVak.melding,
     wijkregisterVak.adres,

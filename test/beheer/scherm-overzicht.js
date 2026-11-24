@@ -31,15 +31,9 @@ var OVERZICHT_ACTIES = {
   'beheerInloggen': 'Ingelogd op de beheerpagina',
   'beheerLedenOpslaan': 'Commissieleden aangepast',
   'beheerRollenOpslaan': 'Rollen aangepast',
-  'registerContactOpslaan': 'Contact gewijzigd',
-  'registerContactVerwijderen': 'Contact verwijderd',
+  'registerAdresOpslaan': 'Adres gewijzigd',
   'registerAdresToevoegen': 'Adres toegevoegd',
   'deelnemerContactOpslaan': 'Deelnemer gewijzigd',
-  'registerBewonerOpslaan': 'Bewoner opgeslagen',
-  'registerBewonerVerwijderen': 'Bewoner verwijderd',
-  'registerSpullenOpslaan': 'Spul opgeslagen',
-  'registerSpullenVerwijderen': 'Spul verwijderd',
-  'registerOpmerkingOpslaan': 'Opmerking opgeslagen',
   'registerOpschonen': 'Verlopen gegevens gewist'
 };
 
@@ -49,15 +43,9 @@ var OVERZICHT_OPDRACHT_TYPEN = {
   begrotingPostVerwijderen: 'Begrotingspost verwijderd',
   geldbronOpslaan: 'Geldbron',
   geldbronVerwijderen: 'Geldbron verwijderd',
-  registerContactOpslaan: 'Contact gewijzigd',
-  registerContactVerwijderen: 'Contact verwijderd',
+  registerAdresOpslaan: 'Adres gewijzigd',
   registerAdresToevoegen: 'Adres toegevoegd',
   deelnemerContactOpslaan: 'Deelnemer gewijzigd',
-  registerBewonerOpslaan: 'Bewoner opgeslagen',
-  registerBewonerVerwijderen: 'Bewoner verwijderd',
-  registerSpullenOpslaan: 'Spul opgeslagen',
-  registerSpullenVerwijderen: 'Spul verwijderd',
-  registerOpmerkingOpslaan: 'Opmerking opgeslagen',
   registerOpschonen: 'Verlopen gegevens gewist'
 };
 

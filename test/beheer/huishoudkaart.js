@@ -1,14 +1,22 @@
-// De huishoudkaart in het scherm Wijkregister (fase 2c): bewoners, spullen, opmerking, deelname en bewaartermijn van een adres, met formulieren om
-// bewoners en spullen toe te voegen, te wijzigen en te verwijderen en de opmerking te bewerken, en het wissen van adressen waarvan de bewaartermijn voorbij is.
-// Alles blijft in het geheugen van de pagina (namen, geboortejaren, dieetwensen): nooit op het apparaat bewaard. Elke wijziging is een opdracht (zie bewerken.js).
+// De huishoudkaart in het scherm Wijkregister (fase 2c): contacten, bewoners, spullen, opmerking, deelname en bewaartermijn van een adres. Een adres wordt in één keer
+// gewijzigd: kies het adres, klik Wijzigen, pas alles in één formulier aan (contacten, bewoners, spullen en opmerking) en sla één keer op. Het opslaan is één opdracht
+// (registerAdresOpslaan, zie bewerken.js), met 'oud' (het adres zoals de pagina het voor het laatst ophaalde) en 'nieuw'. Ook het formulier van een nieuw adres gebruikt dit formulier.
+// Daarnaast het wissen van adressen waarvan de bewaartermijn voorbij is.
+// Alles blijft in het geheugen van de pagina (namen, geboortejaren, dieetwensen): nooit op het apparaat bewaard.
 // De pure functies bovenaan zijn getest met Node (test/huishoudkaart.test.js); de functies met el() staan eronder en gebruiken het scherm in scherm-wijkregister.js.
-// Vereist: app.js (el), gedeeld/rechten.js (heeftRecht), bewerken.js, gedeeld/validatie.js en gedeeld/huishoudkaart.js (huishoudControleerBewoner, huishoudControleerSpul,
-// huishoudControleerOpmerking, huishoudLeeftijd, huishoudSoort, bewaartermijnVan), en scherm-wijkregister.js (wijkregisterStaat, wijkregisterStuur_, wijkregisterTekenLijst_, wijkregisterApp).
+// Vereist: app.js (el), gedeeld/rechten.js (heeftRecht), bewerken.js, gedeeld/validatie.js, gedeeld/contactcontrole.js (controleerContactGegevens), gedeeld/adrescode.js (controleerHuisnummerEnToevoeging),
+// gedeeld/huishoudkaart.js (huishoudControleerBewoner, huishoudControleerSpul, huishoudControleerOpmerking, huishoudLeeftijd, huishoudSoort, bewaartermijnVan),
+// en scherm-wijkregister.js (wijkregisterStaat, wijkregisterStuur_, wijkregisterTekenLijst_, wijkregisterTekenAdres_, wijkregisterApp, wijkregisterNaam_, wijkregisterMailLink_, wijkregisterTelLink_, wijkregisterToestemming_).
 
-var KAART_BEWONER_TYPEN = ['registerBewonerOpslaan', 'registerBewonerVerwijderen'];
-var KAART_SPUL_TYPEN = ['registerSpullenOpslaan', 'registerSpullenVerwijderen'];
-var KAART_OPMERKING_TYPEN = ['registerOpmerkingOpslaan'];
+var KAART_TYPEN = ['registerAdresOpslaan'];
 var KAART_MAX_WISSEN = 100; // zoveel adrescodes past in één opdracht (zie bijwerken.js)
+// Hoeveel rijen één adres hooguit heeft (zie bijwerken.js) en hoe groot de gegevens van een opdracht hooguit mogen zijn (zie opdrachten.js).
+var KAART_MAX_CONTACTEN = 12;
+var KAART_MAX_BEWONERS = 20;
+var KAART_MAX_SPULLEN = 20;
+var KAART_MAX_GEGEVENS = 20000;
+var KAART_SOORTEN = { contacten: { een: 'contact', meer: 'contacten', max: KAART_MAX_CONTACTEN }, bewoners: { een: 'bewoner', meer: 'bewoners', max: KAART_MAX_BEWONERS },
+  spullen: { een: 'spul', meer: 'spullen', max: KAART_MAX_SPULLEN } };
 
 // ---- puur ----
 
@@ -39,7 +47,8 @@ function kaartBewaartermijn(a) {
   var t = a && a.bewaartermijn ? a.bewaartermijn : bewaartermijnVan(a && a.toegevoegdOp, a && a.historie);
   if (!t || typeof t.tot !== 'number') return { tekst: 'Bewaartermijn onbekend', verlopen: false, onbekend: true };
   var verlopen = !!(a && a.verlopen === true);
-  return { tekst: 'Bewaren tot eind ' + t.tot, verlopen: verlopen, onbekend: false };
+  // de commissie bewaart de gegevens tot 3 edities (jaren) achter elkaar zonder aanmelding voorbij zijn; tot dan blijven de buren de mails krijgen
+  return { tekst: 'Bewaren tot eind ' + t.tot + ' (3 jaar zonder aanmelding)', verlopen: verlopen, onbekend: false };
 }
 
 // De status van deze editie in woorden, uit ditJaar ({ status, betaalstatus, openstaand in centen }) of null.
@@ -71,28 +80,21 @@ function kaartWisVraag(aantal) {
     (aantal > nu ? ' Er zijn er ' + (aantal - nu) + ' meer; die volgen bij een volgende keer.' : '');
 }
 
-// Het formulier voor een bewoner naar de gegevens van de opdracht. f = de staat van het formulier. Geeft { fouten, gegevens }.
-// dieetCodes = de codes van de server (mag ontbreken: dan alleen de vorm). Bij wijzigen gaan index en oud mee (oud = de bewoner zoals de commissie hem zag);
-// een dieetcode die de bewoner al had blijft toegestaan, ook als ze intussen uit de keuzes is gehaald.
-function kaartBewonerGegevens(f, dieetCodes) {
-  var c = huishoudControleerBewoner({ voornaam: f.voornaam, geboortemaand: f.geboortemaand, geboortejaar: f.geboortejaar, dieet: f.dieet, dieetToelichting: f.dieetToelichting, ehbo: f.ehbo },
-    dieetCodes || f.modus === 'wijzig' ? { dieetCodes: dieetCodes, oudDieet: f.modus === 'wijzig' && f.oud ? f.oud.dieet : undefined } : undefined);
-  var gegevens = { adrescode: f.adrescode, voornaam: c.schoon.voornaam, geboortemaand: c.schoon.geboortemaand, geboortejaar: c.schoon.geboortejaar, dieet: c.schoon.dieet,
-    dieetToelichting: c.schoon.dieetToelichting, ehbo: c.schoon.ehbo };
-  if (f.modus === 'wijzig') { gegevens.index = f.index; gegevens.oud = f.oud; }
-  return { fouten: c.fouten, gegevens: gegevens };
+
+// ---- het formulier: staat, rijen, controle ----
+
+function kaartTekst_(w) {
+  return w === undefined || w === null ? '' : String(w);
 }
 
-function kaartSpulGegevens(f) {
-  var c = huishoudControleerSpul({ wat: f.wat, aantal: f.aantal, opmerking: f.opmerking });
-  var gegevens = { adrescode: f.adrescode, wat: c.schoon.wat, aantal: c.schoon.aantal, opmerking: c.schoon.opmerking };
-  if (f.modus === 'wijzig') { gegevens.index = f.index; gegevens.oud = f.oud; }
-  return { fouten: c.fouten, gegevens: gegevens };
-}
-
-function kaartOpmerkingGegevens(f) {
-  var c = huishoudControleerOpmerking(f.opmerking);
-  return { fouten: c.fouten, gegevens: { adrescode: f.adrescode, opmerking: c.schoon, oud: f.oud } };
+// Het adres zoals de server het gaf, in de vorm die de opdracht als 'oud' meestuurt: alleen wat de commissie ziet (geen toestemmingen of tokens).
+function kaartOudVan(a) {
+  return {
+    contacten: (a.contacten || []).map(function (c) { return { voornaam: kaartTekst_(c.voornaam), achternaam: kaartTekst_(c.achternaam), email: kaartTekst_(c.email), telefoon: kaartTekst_(c.telefoon) }; }),
+    bewoners: (a.personen || []).map(kaartBewonerOud),
+    spullen: (a.spullen || []).map(kaartSpulOud),
+    opmerking: kaartTekst_(a.opmerking)
+  };
 }
 
 // De bewoner zoals het formulier hem vult uit wat de server gaf, en de 'oud' die de verwerker vergelijkt.
@@ -105,21 +107,192 @@ function kaartSpulOud(sp) {
   return { wat: sp.wat, aantal: sp.aantal === undefined ? null : sp.aantal, opmerking: sp.opmerking || '' };
 }
 
+function kaartNieuweRij(soort) {
+  if (soort === 'contacten') return { voornaam: '', achternaam: '', email: '', telefoon: '' };
+  if (soort === 'bewoners') return { voornaam: '', geboortemaand: '', geboortejaar: '', dieet: [], dieetToelichting: '', ehbo: false };
+  return { wat: '', aantal: '', opmerking: '' };
+}
+
+// De staat van het formulier 'Wijzigen' voor dit adres: elke rij heeft van = zijn plek in oud (zo weet de server welk contact zijn token en toestemmingen houdt,
+// en telt de pagina wat er verwijderd wordt). Alle waarden zijn tekst, zoals in de invoervelden.
+function kaartFormulierUitAdres(a) {
+  var oud = kaartOudVan(a);
+  return {
+    adrescode: a.adrescode, oud: oud,
+    contacten: oud.contacten.map(function (c, i) { return Object.assign({ van: i }, c); }),
+    bewoners: (a.personen || []).map(function (p, i) {
+      return { van: i, voornaam: kaartTekst_(p.voornaam), geboortemaand: p.geboortemaand === null || p.geboortemaand === undefined ? '' : String(p.geboortemaand),
+        geboortejaar: p.geboortejaar === null || p.geboortejaar === undefined ? '' : String(p.geboortejaar), dieet: (p.dieet || []).slice(), dieetToelichting: kaartTekst_(p.dieetToelichting), ehbo: p.ehbo === true };
+    }),
+    spullen: (a.spullen || []).map(function (sp, i) {
+      return { van: i, wat: kaartTekst_(sp.wat), aantal: sp.aantal === null || sp.aantal === undefined ? '' : String(sp.aantal), opmerking: kaartTekst_(sp.opmerking) };
+    }),
+    opmerking: oud.opmerking, fouten: null
+  };
+}
+
+// De staat van het formulier 'Adres toevoegen': leeg, met alvast een contact.
+function kaartFormulierNieuw() {
+  return { straat: '', huisnummer: '', toevoeging: '', oud: null, contacten: [kaartNieuweRij('contacten')], bewoners: [], spullen: [], opmerking: '', fouten: null };
+}
+
+// Een lege rij erbij; false als er al het maximum is.
+function kaartRijToevoegen(f, soort) {
+  if (f[soort].length >= KAART_SOORTEN[soort].max) return false;
+  f[soort].push(kaartNieuweRij(soort));
+  return true;
+}
+
+function kaartRijVerwijder(f, soort, i) {
+  if (i < 0 || i >= f[soort].length) return false;
+  f[soort].splice(i, 1);
+  return true;
+}
+
+// Hoeveel contacten, bewoners en spullen verdwijnen: de rijen uit oud waar geen rij meer van is (van). Geeft { contacten, bewoners, spullen }.
+function kaartVerwijderdAantallen(f) {
+  var uit = {};
+  Object.keys(KAART_SOORTEN).forEach(function (soort) {
+    var over = f[soort].filter(function (r) { return r.van !== undefined && r.van !== null; }).length;
+    uit[soort] = f.oud ? Math.max(0, f.oud[soort].length - over) : 0;
+  });
+  return uit;
+}
+
+// De regel boven Opslaan: 'Je verwijdert 1 contact, 2 bewoners en 1 spul'; leeg als er niets verwijderd wordt.
+function kaartVerwijderdTekst(f) {
+  var n = kaartVerwijderdAantallen(f);
+  var delen = [];
+  Object.keys(KAART_SOORTEN).forEach(function (soort) {
+    if (n[soort] > 0) delen.push(n[soort] + ' ' + (n[soort] === 1 ? KAART_SOORTEN[soort].een : KAART_SOORTEN[soort].meer));
+  });
+  if (delen.length === 0) return '';
+  return 'Je verwijdert ' + (delen.length === 1 ? delen[0] : delen.slice(0, -1).join(', ') + ' en ' + delen[delen.length - 1]);
+}
+
+// Fouten per veld van één rij. valideer(rij) geeft de meldingen; basis = een geldige rij. Elk veld wordt apart gecontroleerd (met de rest uit basis), zodat de melding bij dat veld kan staan;
+// wat daarna nog overblijft (een melding die van meer velden afhangt) komt bij 'rij'.
+function kaartVeldFouten(valideer, rij, velden, basis, paren) {
+  var uit = { rij: [] };
+  var gezien = [];
+  velden.forEach(function (v) {
+    var probeer = Object.assign({}, basis);
+    probeer[v] = rij[v];
+    ((paren || {})[v] || []).forEach(function (p) { probeer[p] = rij[p]; });
+    uit[v] = valideer(probeer);
+    uit[v].forEach(function (m) { gezien.push(m); });
+  });
+  valideer(rij).forEach(function (m) { if (gezien.indexOf(m) === -1 && uit.rij.indexOf(m) === -1) uit.rij.push(m); });
+  return uit;
+}
+
+var KAART_VELDEN = {
+  contacten: ['voornaam', 'achternaam', 'email', 'telefoon'],
+  bewoners: ['voornaam', 'geboortemaand', 'geboortejaar', 'dieet', 'dieetToelichting', 'ehbo'],
+  spullen: ['wat', 'aantal', 'opmerking']
+};
+
+function kaartTelFouten_(fouten) {
+  var n = fouten.algemeen.length + fouten.opmerking.length + Object.keys(fouten.adres).reduce(function (t, k) { return t + fouten.adres[k].length; }, 0);
+  ['contacten', 'bewoners', 'spullen'].forEach(function (soort) {
+    fouten[soort].forEach(function (r) { Object.keys(r).forEach(function (k) { n += r[k].length; }); });
+  });
+  return n;
+}
+
+// Controleert het hele formulier met de gedeelde controles en bouwt de gegevens van de opdracht. dieetCodes = de codes van de server (mag ontbreken: dan alleen de vorm);
+// een dieetcode die een bewoner al had (in oud) blijft toegestaan. Voor 'Wijzigen' (f.oud) is de opdracht registerAdresOpslaan met { adrescode, oud, nieuw };
+// voor 'Adres toevoegen' (zonder oud) is het de inhoud van registerAdresToevoegen. extra = { straten, adressen } voor dat formulier (straat, huisnummer, toevoeging en dubbelen).
+// Geeft { fouten: { algemeen, adres, contacten: [per rij], bewoners, spullen, opmerking }, aantal, gegevens }; gegevens is alleen bruikbaar als aantal 0 is.
+function kaartControleer(f, dieetCodes, extra) {
+  var fouten = { algemeen: [], adres: {}, contacten: [], bewoners: [], spullen: [], opmerking: [] };
+  var oudDieet = [];
+  if (f.oud) f.oud.bewoners.forEach(function (b) { (b.dieet || []).forEach(function (c) { if (oudDieet.indexOf(c) === -1) oudDieet.push(c); }); });
+  var omgeving = dieetCodes ? { dieetCodes: dieetCodes, oudDieet: oudDieet } : { oudDieet: oudDieet };
+  var nieuw = { contacten: [], bewoners: [], spullen: [], opmerking: '' };
+  f.contacten.forEach(function (r) {
+    var c = controleerContactGegevens(r);
+    var rij = kaartVeldFouten(function (g) { return controleerContactGegevens(g).fouten; }, r, KAART_VELDEN.contacten, { voornaam: 'A', achternaam: '', email: '', telefoon: '' });
+    fouten.contacten.push(rij);
+    var schoon = c.schoon;
+    if (r.van !== undefined && r.van !== null) schoon.van = r.van;
+    nieuw.contacten.push(schoon);
+  });
+  f.bewoners.forEach(function (r) {
+    var b = huishoudControleerBewoner(r, omgeving);
+    fouten.bewoners.push(kaartVeldFouten(function (g) { return huishoudControleerBewoner(g, omgeving).fouten; }, r, KAART_VELDEN.bewoners,
+      { voornaam: 'A', geboortemaand: '', geboortejaar: '', dieet: [], dieetToelichting: '', ehbo: false }, { geboortemaand: ['geboortejaar'] }));
+    nieuw.bewoners.push(b.schoon);
+  });
+  f.spullen.forEach(function (r) {
+    var sp = huishoudControleerSpul(r);
+    fouten.spullen.push(kaartVeldFouten(function (g) { return huishoudControleerSpul(g).fouten; }, r, KAART_VELDEN.spullen, { wat: 'x', aantal: '', opmerking: '' }));
+    nieuw.spullen.push(sp.schoon);
+  });
+  var o = huishoudControleerOpmerking(f.opmerking);
+  fouten.opmerking = o.fouten;
+  nieuw.opmerking = o.schoon;
+  var gegevens;
+  if (f.oud) {
+    gegevens = { adrescode: f.adrescode, oud: f.oud, nieuw: nieuw };
+  } else {
+    var e = extra || {};
+    var straten = e.straten || [];
+    var nr = null;
+    fouten.adres.straat = straten.indexOf(f.straat) === -1 ? ['Kies een straat uit de lijst.'] : [];
+    fouten.adres.huisnummer = []; fouten.adres.toevoeging = [];
+    try { nr = controleerHuisnummerEnToevoeging(f.huisnummer, f.toevoeging); } catch (err) {
+      var m = String(err && err.message || err);
+      // de melding over de toevoeging hoort bij dat veld, de rest bij het huisnummer
+      (/toevoeging/i.test(m) ? fouten.adres.toevoeging : fouten.adres.huisnummer).push(m);
+    }
+    if (nr && fouten.adres.straat.length === 0) {
+      var gezocht = (String(f.straat) + String(nr.huisnummer) + String(nr.toevoeging || '')).replace(/\s+/g, '').toLowerCase();
+      var bestaand = (e.adressen || []).filter(function (a) { return String(a.adres || '').replace(/\s+/g, '').toLowerCase() === gezocht; })[0];
+      if (bestaand) fouten.adres.huisnummer.push('Dit adres staat al in het wijkregister (' + bestaand.adres + '). Wijzig dat adres in plaats van het opnieuw toe te voegen.');
+    }
+    if (f.contacten.length === 0) fouten.algemeen.push('Vul minstens één contact in.');
+    gegevens = { straat: f.straat, huisnummer: nr ? String(nr.huisnummer) : '', toevoeging: nr ? nr.toevoeging : '', contacten: nieuw.contacten, bewoners: nieuw.bewoners, spullen: nieuw.spullen, opmerking: nieuw.opmerking };
+  }
+  var aantal = kaartTelFouten_(fouten);
+  if (aantal === 0 && JSON.stringify(gegevens).length > KAART_MAX_GEGEVENS) {
+    fouten.algemeen.push('Dit adres heeft te veel gegevens om in één keer op te slaan. Maak de teksten korter of haal rijen weg.');
+    aantal = 1;
+  }
+  return { fouten: fouten, aantal: aantal, gegevens: gegevens };
+}
+
+// Wat er van een adres te zien is: de gegevens van de server, of (zolang een opdracht voor dit adres wordt verwerkt) de nieuwe stand uit die opdracht.
+// a = een adres uit beheerWijkregister, wachtGegevens = de gegevens van de laatste opdracht registerAdresOpslaan voor dit adres in het geheugen van de pagina, of null.
+// Geeft { wacht, contacten: [{ voornaam, achternaam, email, telefoon, toestemming (tekst of null) }], bewoners, spullen, opmerking }.
+function kaartWeergaveVan(a, wachtGegevens, toestemmingTekst) {
+  var oudeContacten = a.contacten || [];
+  if (!wachtGegevens || !wachtGegevens.nieuw) {
+    return { wacht: false, contacten: oudeContacten.map(function (c) { return Object.assign({}, c, { toestemming: toestemmingTekst ? toestemmingTekst(c) : null }); }),
+      bewoners: a.personen || [], spullen: a.spullen || [], opmerking: a.opmerking || '' };
+  }
+  var n = wachtGegevens.nieuw;
+  return { wacht: true,
+    contacten: (n.contacten || []).map(function (c) {
+      var vroeger = c.van !== undefined && c.van !== null ? oudeContacten[c.van] : null;
+      return { voornaam: c.voornaam, achternaam: c.achternaam, email: c.email, telefoon: c.telefoon, toestemming: vroeger && toestemmingTekst ? toestemmingTekst(vroeger) : null };
+    }),
+    bewoners: n.bewoners || [], spullen: n.spullen || [], opmerking: n.opmerking || '' };
+}
+
 // ---- weergave ----
 
 function kaartData_() {
   return typeof wijkregisterLading !== 'undefined' && wijkregisterLading.data ? wijkregisterLading.data : {};
 }
 
-function kaartOpen_(f) {
+// Het formulier 'Wijzigen' openen voor dit adres (hooguit één tegelijk).
+function kaartOpen_(a) {
   var s = wijkregisterStaat;
-  f.fouten = [];
-  f.focus = true;
+  var f = kaartFormulierUitAdres(a);
+  f.focus = 'eerste';
   s.kaart = f;
-  s.kaartBevestig = null;
-  s.formulier = null;
-  s.bevestig = null;
-  s.open[f.adrescode] = true;
+  s.open[a.adrescode] = true;
   wijkregisterTekenLijst_();
 }
 
@@ -128,122 +301,178 @@ function kaartSluit_() {
   wijkregisterTekenLijst_();
 }
 
-function kaartStuur_(type, gegevens) {
-  wijkregisterStaat.kaart = null;
-  wijkregisterStuur_(type, gegevens);
-  wijkregisterTekenLijst_();
-}
-
-function kaartFouten_(f, fouten, formulierId) {
-  f.fouten = fouten;
-  wijkregisterTekenLijst_();
-  bewerkenFocusFouten(document.getElementById(formulierId));
-}
-
-function kaartBewonerOpslaan_() {
-  var f = wijkregisterStaat.kaart;
-  if (!f || f.soort !== 'bewoner' || !wijkregisterMagBewerken_()) return;
+function kaartDieetCodes_() {
   var codes = (kaartData_().dieetkeuzes || []).map(function (k) { return k.code; });
-  var u = kaartBewonerGegevens(f, codes.length > 0 ? codes : null);
-  if (u.fouten.length > 0) { kaartFouten_(f, u.fouten, 'wijk-kaartformulier'); return; }
-  kaartStuur_('registerBewonerOpslaan', u.gegevens);
+  return codes.length > 0 ? codes : null;
 }
 
-function kaartSpulOpslaan_() {
-  var f = wijkregisterStaat.kaart;
-  if (!f || f.soort !== 'spul' || !wijkregisterMagBewerken_()) return;
-  var u = kaartSpulGegevens(f);
-  if (u.fouten.length > 0) { kaartFouten_(f, u.fouten, 'wijk-kaartformulier'); return; }
-  kaartStuur_('registerSpullenOpslaan', u.gegevens);
-}
-
-function kaartOpmerkingOpslaan_() {
-  var f = wijkregisterStaat.kaart;
-  if (!f || f.soort !== 'opmerking' || !wijkregisterMagBewerken_()) return;
-  var u = kaartOpmerkingGegevens(f);
-  if (u.fouten.length > 0) { kaartFouten_(f, u.fouten, 'wijk-kaartformulier'); return; }
-  kaartStuur_('registerOpmerkingOpslaan', u.gegevens);
-}
-
-function kaartVraagVerwijder_(soort, adrescode, index) {
+function kaartOpslaan_() {
   var s = wijkregisterStaat;
+  var f = s.kaart;
+  if (!f || !wijkregisterMagBewerken_()) return;
+  var u = kaartControleer(f, kaartDieetCodes_());
+  if (u.aantal > 0) {
+    f.fouten = u.fouten; f.aantalFouten = u.aantal;
+    wijkregisterTekenLijst_();
+    bewerkenFocusFouten(document.getElementById('wijk-f'));
+    return;
+  }
   s.kaart = null;
-  s.kaartBevestig = { soort: soort, adrescode: adrescode, index: index };
+  wijkregisterStuur_('registerAdresOpslaan', u.gegevens);
   wijkregisterTekenLijst_();
 }
 
-function kaartBewonerVerwijder_(a, p, i) {
-  if (!wijkregisterMagBewerken_()) return;
-  wijkregisterStaat.kaartBevestig = null;
-  wijkregisterStuur_('registerBewonerVerwijderen', { adrescode: a.adrescode, index: i, oud: kaartBewonerOud(p) });
-  wijkregisterTekenLijst_();
+// Het formulier voor adres-toevoegen sturen (scherm-wijkregister.js roept dit aan).
+function kaartNieuwAdresOpslaan_() {
+  var s = wijkregisterStaat;
+  var f = s.adresFormulier;
+  if (!f || !wijkregisterMagBewerken_()) return;
+  var d = kaartData_();
+  var u = kaartControleer(f, kaartDieetCodes_(), { straten: wijkregisterStraten_(), adressen: d.adressen });
+  if (u.aantal > 0) {
+    f.fouten = u.fouten; f.aantalFouten = u.aantal;
+    wijkregisterTekenAdres_();
+    bewerkenFocusFouten(document.getElementById('wijk-n'));
+    return;
+  }
+  s.adresFormulier = null;
+  wijkregisterStuur_('registerAdresToevoegen', u.gegevens);
+  wijkregisterTekenAdres_();
 }
 
-function kaartSpulVerwijder_(a, sp, i) {
-  if (!wijkregisterMagBewerken_()) return;
-  wijkregisterStaat.kaartBevestig = null;
-  wijkregisterStuur_('registerSpullenVerwijderen', { adrescode: a.adrescode, index: i, oud: kaartSpulOud(sp) });
-  wijkregisterTekenLijst_();
+// Een invoerveld van een rij: waarde uit de staat, bijhouden bij typen, de melding eronder en aria-invalid/describedby als er een fout is.
+function kaartInvoer_(f, soort, i, veld, id, label, opties) {
+  var rij = f[soort][i];
+  var meldingen = f.fouten && f.fouten[soort] && f.fouten[soort][i] && f.fouten[soort][i][veld] ? f.fouten[soort][i][veld] : [];
+  var invoer = el('input', Object.assign({ type: 'text', id: id, maxlength: String(CONTACT_MAX_TEKENS), autocomplete: 'off',
+    oninput: function (e) { rij[veld] = e.target.value; } }, opties || {}));
+  invoer.value = kaartTekst_(rij[veld]);
+  return kaartVeldMetFout_(id, label, invoer, meldingen);
 }
 
-function kaartBevestigStrook_(tekst, bijJa) {
-  return el('div', { class: 'strook strook-geel bewerken-bevestig', role: 'alertdialog', 'aria-label': 'Verwijderen bevestigen' },
-    el('span', { class: 'strook-tekst' }, tekst),
-    el('button', { type: 'button', class: 'knop knop-gevaar bewerken-bevestig-ja', onclick: bijJa }, 'Ja, verwijderen'),
-    el('button', { type: 'button', class: 'knop', onclick: function () { wijkregisterStaat.kaartBevestig = null; wijkregisterTekenLijst_(); } }, 'Nee, laat staan'));
+function kaartVeldMetFout_(id, label, invoer, meldingen) {
+  if (meldingen.length > 0) { invoer.setAttribute('aria-invalid', 'true'); invoer.setAttribute('aria-describedby', id + '-fout'); }
+  return el('div', { class: 'veld' }, el('label', { for: id }, label), invoer,
+    meldingen.length > 0 ? el('span', { class: 'kaart-veldfout', id: id + '-fout' }, meldingen.join(' ')) : null);
 }
 
-function kaartFormulierKlaar_(form, f) {
-  if (f.focus) { f.focus = false; setTimeout(function () { bewerkenFocus(form); }, 0); }
-  return form;
+function kaartRijFouten_(f, soort, i) {
+  var m = f.fouten && f.fouten[soort] && f.fouten[soort][i] ? f.fouten[soort][i].rij : [];
+  return m && m.length > 0 ? el('div', { class: 'kaart-veldfout', role: 'alert' }, m.join(' ')) : null;
 }
 
-function kaartBewonerFormulier_(f) {
-  var data = kaartData_();
-  var keuzes = data.dieetkeuzes || [];
-  var dieetVeld = el('fieldset', { class: 'chips', id: 'wijk-k-dieet' }, el('legend', null, 'Dieet (mag leeg)'),
-    keuzes.length === 0 ? el('span', { class: 'rij-sub' }, 'Er zijn geen dieetkeuzes ingesteld.') : keuzes.map(function (k) {
-      var vink = el('input', { type: 'checkbox', checked: f.dieet.indexOf(k.code) !== -1, onchange: function (e) {
-        var i = f.dieet.indexOf(k.code);
-        if (e.target.checked && i === -1) f.dieet.push(k.code);
-        if (!e.target.checked && i !== -1) f.dieet.splice(i, 1);
+// Een rij met kop (naam en ×) en velden. hertekenen = tekent het formulier opnieuw na een rij erbij of weg.
+function kaartRij_(f, soort, i, titel, velden, hertekenen, voorvoegsel) {
+  var kop = el('div', { class: 'kaart-rijkop' }, el('strong', null, titel),
+    el('button', { type: 'button', class: 'knop knop-klein knop-gevaar kaart-weg', 'aria-label': titel + ' verwijderen', onclick: function () {
+      kaartRijVerwijder(f, soort, i);
+      f.focus = 'kaart-toevoegen-' + soort + '-' + voorvoegsel; // de knop '+ ...' van dezelfde sectie
+      hertekenen();
+    } }, '×'));
+  return el('li', { class: 'kaart-rij' }, kop, el('div', { class: 'begr-velden' }, velden), kaartRijFouten_(f, soort, i));
+}
+
+function kaartContactRij_(f, i, voorvoegsel, hertekenen) {
+  var id = function (v) { return voorvoegsel + '-c' + i + '-' + v; };
+  var velden = [
+    kaartInvoer_(f, 'contacten', i, 'voornaam', id('voornaam'), 'Voornaam', { required: 'required' }),
+    kaartInvoer_(f, 'contacten', i, 'achternaam', id('achternaam'), 'Achternaam (mag leeg)'),
+    kaartInvoer_(f, 'contacten', i, 'email', id('email'), 'E-mailadres (mag leeg)', { type: 'email', inputmode: 'email', autocapitalize: 'none' }),
+    kaartInvoer_(f, 'contacten', i, 'telefoon', id('telefoon'), 'Telefoonnummer (mag leeg)', { type: 'tel', inputmode: 'tel' })
+  ];
+  return kaartRij_(f, 'contacten', i, 'Contact ' + (i + 1), velden, hertekenen, voorvoegsel);
+}
+
+function kaartBewonerRij_(f, i, voorvoegsel, hertekenen) {
+  var id = function (v) { return voorvoegsel + '-b' + i + '-' + v; };
+  var r = f.bewoners[i];
+  var keuzes = kaartData_().dieetkeuzes || [];
+  var fout = f.fouten && f.fouten.bewoners && f.fouten.bewoners[i] ? f.fouten.bewoners[i] : {};
+  // codes die de bewoner heeft maar die niet (meer) in de keuzes staan, blijven als vinkje zichtbaar
+  var extra = r.dieet.filter(function (c) { return !keuzes.some(function (k) { return k.code === c; }); }).map(function (c) { return { code: c, naam: c }; });
+  var dieetVeld = el('fieldset', { class: 'chips', id: id('dieet') }, el('legend', null, 'Dieet (mag leeg)'),
+    keuzes.length + extra.length === 0 ? el('span', { class: 'rij-sub' }, 'Er zijn geen dieetkeuzes ingesteld.') : keuzes.concat(extra).map(function (k, j) {
+      var vink = el('input', { type: 'checkbox', id: id('dieet-' + j), checked: r.dieet.indexOf(k.code) !== -1, onchange: function (e) {
+        var p = r.dieet.indexOf(k.code);
+        if (e.target.checked && p === -1) r.dieet.push(k.code);
+        if (!e.target.checked && p !== -1) r.dieet.splice(p, 1);
       } });
       return el('label', { class: 'chip' }, vink, k.naam || k.code);
-    }));
-  var ehbo = el('input', { type: 'checkbox', id: 'wijk-k-ehbo', checked: f.ehbo === true, onchange: function (e) { f.ehbo = e.target.checked; } });
+    }),
+    fout.dieet && fout.dieet.length > 0 ? el('span', { class: 'kaart-veldfout' }, fout.dieet.join(' ')) : null);
+  var ehbo = el('input', { type: 'checkbox', id: id('ehbo'), checked: r.ehbo === true, onchange: function (e) { r.ehbo = e.target.checked; } });
   var velden = [
-    bewerkenVeld_('wijk-k-voornaam', 'Voornaam', bewerkenTekstvak_(f, 'voornaam', 'wijk-k-voornaam', { required: 'required', maxlength: String(HUISHOUD_MAX_VOORNAAM) })),
-    bewerkenVeld_('wijk-k-maand', 'Geboortemaand (1 tot en met 12, mag leeg)', bewerkenTekstvak_(f, 'geboortemaand', 'wijk-k-maand', { inputmode: 'numeric', maxlength: '2' })),
-    bewerkenVeld_('wijk-k-jaar', 'Geboortejaar (vier cijfers, mag leeg)', bewerkenTekstvak_(f, 'geboortejaar', 'wijk-k-jaar', { inputmode: 'numeric', maxlength: '4' })),
+    kaartInvoer_(f, 'bewoners', i, 'voornaam', id('voornaam'), 'Voornaam', { required: 'required', maxlength: String(HUISHOUD_MAX_VOORNAAM) }),
+    kaartInvoer_(f, 'bewoners', i, 'geboortemaand', id('maand'), 'Geboortemaand (1 tot en met 12, mag leeg)', { inputmode: 'numeric', maxlength: '2' }),
+    kaartInvoer_(f, 'bewoners', i, 'geboortejaar', id('jaar'), 'Geboortejaar (vier cijfers, mag leeg)', { inputmode: 'numeric', maxlength: '4' }),
     dieetVeld,
-    bewerkenVeld_('wijk-k-toelichting', 'Toelichting bij het dieet (mag leeg)', bewerkenTekstvak_(f, 'dieetToelichting', 'wijk-k-toelichting', { maxlength: String(HUISHOUD_MAX_TOELICHTING) })),
-    el('div', { class: 'veld' }, el('label', { for: 'wijk-k-ehbo' }, ehbo, ' Heeft een EHBO-diploma'))
+    kaartInvoer_(f, 'bewoners', i, 'dieetToelichting', id('toelichting'), 'Toelichting bij het dieet (mag leeg)', { maxlength: String(HUISHOUD_MAX_TOELICHTING) }),
+    el('div', { class: 'veld' }, el('label', { for: id('ehbo') }, ehbo, ' Heeft een EHBO-diploma'))
   ];
-  return kaartFormulierKlaar_(bewerkenFormulier({ id: 'wijk-kaartformulier', titel: f.modus === 'wijzig' ? 'Bewoner wijzigen' : 'Bewoner toevoegen', velden: velden,
-    fouten: f.fouten || [], opslaanTekst: 'Opslaan', bijOpslaan: kaartBewonerOpslaan_, bijAnnuleren: kaartSluit_ }), f);
+  return kaartRij_(f, 'bewoners', i, 'Bewoner ' + (i + 1), velden, hertekenen, voorvoegsel);
 }
 
-function kaartSpulFormulier_(f) {
+function kaartSpulRij_(f, i, voorvoegsel, hertekenen) {
+  var id = function (v) { return voorvoegsel + '-s' + i + '-' + v; };
   var velden = [
-    bewerkenVeld_('wijk-k-wat', 'Wat leen je uit?', bewerkenTekstvak_(f, 'wat', 'wijk-k-wat', { required: 'required', maxlength: String(HUISHOUD_MAX_SPUL_WAT) })),
-    bewerkenVeld_('wijk-k-aantal', 'Aantal (1 tot en met 999, mag leeg)', bewerkenTekstvak_(f, 'aantal', 'wijk-k-aantal', { inputmode: 'numeric', maxlength: '3' })),
-    bewerkenVeld_('wijk-k-opmerking', 'Opmerking (mag leeg)', bewerkenTekstvak_(f, 'opmerking', 'wijk-k-opmerking', { maxlength: String(HUISHOUD_MAX_SPUL_OPMERKING) }))
+    kaartInvoer_(f, 'spullen', i, 'wat', id('wat'), 'Wat leen je uit?', { required: 'required', maxlength: String(HUISHOUD_MAX_SPUL_WAT) }),
+    kaartInvoer_(f, 'spullen', i, 'aantal', id('aantal'), 'Aantal (1 tot en met 999, mag leeg)', { inputmode: 'numeric', maxlength: '3' }),
+    kaartInvoer_(f, 'spullen', i, 'opmerking', id('opmerking'), 'Opmerking (mag leeg)', { maxlength: String(HUISHOUD_MAX_SPUL_OPMERKING) })
   ];
-  return kaartFormulierKlaar_(bewerkenFormulier({ id: 'wijk-kaartformulier', titel: f.modus === 'wijzig' ? 'Spul wijzigen' : 'Spul toevoegen', velden: velden,
-    fouten: f.fouten || [], opslaanTekst: 'Opslaan', bijOpslaan: kaartSpulOpslaan_, bijAnnuleren: kaartSluit_ }), f);
+  return kaartRij_(f, 'spullen', i, 'Spul ' + (i + 1), velden, hertekenen, voorvoegsel);
 }
 
-function kaartOpmerkingFormulier_(f) {
-  var vak = el('textarea', { id: 'wijk-k-adresopmerking', rows: '4', maxlength: String(HUISHOUD_MAX_ADRES_OPMERKING), oninput: function (e) { f.opmerking = e.target.value; } });
+function kaartSectie_(f, soort, titel, rijTekenaar, voorvoegsel, hertekenen) {
+  var rijen = f[soort].map(function (r, i) { return rijTekenaar(f, i, voorvoegsel, hertekenen); });
+  var soortInfo = KAART_SOORTEN[soort];
+  var vol = f[soort].length >= soortInfo.max;
+  return el('fieldset', { class: 'kaart-sectie' }, el('legend', null, titel + ' (' + f[soort].length + ')'),
+    rijen.length === 0 ? el('p', { class: 'rij-sub' }, 'Geen ' + soortInfo.meer + '.') : el('ul', { class: 'kaart-rijen' }, rijen),
+    el('button', { type: 'button', class: 'knop knop-klein', id: 'kaart-toevoegen-' + soort + '-' + voorvoegsel, disabled: vol, onclick: function () {
+      kaartRijToevoegen(f, soort);
+      f.focus = voorvoegsel + '-' + (soort === 'contacten' ? 'c' : soort === 'bewoners' ? 'b' : 's') + (f[soort].length - 1) + '-' + (soort === 'spullen' ? 'wat' : 'voornaam');
+      hertekenen();
+    } }, '+ ' + soortInfo.een),
+    vol ? el('span', { class: 'rij-sub' }, ' Meer dan ' + soortInfo.max + ' ' + soortInfo.meer + ' past niet in één keer.') : null);
+}
+
+// Het formulier voor een heel adres. opties = { id, voorvoegsel, titel, opslaanTekst, bijOpslaan, bijAnnuleren, hertekenen, kop (extra velden bovenaan, bij een nieuw adres) }.
+function kaartAdresFormulier_(f, opties) {
+  var velden = (opties.kop || []).concat([
+    kaartSectie_(f, 'contacten', 'Contacten', kaartContactRij_, opties.voorvoegsel, opties.hertekenen),
+    kaartSectie_(f, 'bewoners', 'Bewoners', kaartBewonerRij_, opties.voorvoegsel, opties.hertekenen),
+    kaartSectie_(f, 'spullen', 'Spullen om te lenen', kaartSpulRij_, opties.voorvoegsel, opties.hertekenen)
+  ]);
+  var vak = el('textarea', { id: opties.voorvoegsel + '-opmerking', rows: '4', maxlength: String(HUISHOUD_MAX_ADRES_OPMERKING), oninput: function (e) { f.opmerking = e.target.value; } });
   vak.value = f.opmerking;
-  var velden = [bewerkenVeld_('wijk-k-adresopmerking', 'Opmerking over dit adres (hooguit ' + HUISHOUD_MAX_ADRES_OPMERKING + ' tekens)', vak)];
-  var form = bewerkenFormulier({ id: 'wijk-kaartformulier', titel: 'Opmerking bewerken', velden: velden, fouten: f.fouten || [], opslaanTekst: 'Opslaan',
-    bijOpslaan: kaartOpmerkingOpslaan_, bijAnnuleren: kaartSluit_ });
-  if (f.focus) { f.focus = false; setTimeout(function () { var v = form.querySelector('textarea'); if (v) { v.focus(); if (form.scrollIntoView) form.scrollIntoView({ block: 'nearest' }); } }, 0); }
+  var opmFout = f.fouten && f.fouten.opmerking ? f.fouten.opmerking : [];
+  velden.push(kaartVeldMetFout_(opties.voorvoegsel + '-opmerking', 'Opmerking over dit adres (hooguit ' + HUISHOUD_MAX_ADRES_OPMERKING + ' tekens, mag leeg)', vak, opmFout));
+  var weg = kaartVerwijderdTekst(f);
+  if (weg !== '') velden.push(el('p', { class: 'strook strook-geel kaart-verwijderd', role: 'status' }, weg + '. Dit gebeurt pas als je op Opslaan klikt.'));
+  var algemeen = f.fouten ? f.fouten.algemeen.slice() : [];
+  if (f.fouten && f.aantalFouten > 0) algemeen.unshift('Controleer de gemarkeerde velden (' + f.aantalFouten + (f.aantalFouten === 1 ? ' fout' : ' fouten') + ').');
+  var form = bewerkenFormulier({ id: opties.id, titel: opties.titel, velden: velden, fouten: algemeen, opslaanTekst: opties.opslaanTekst, bijOpslaan: opties.bijOpslaan, bijAnnuleren: opties.bijAnnuleren });
+  if (f.focus) {
+    var doel = f.focus;
+    f.focus = null;
+    setTimeout(function () {
+      var v = doel === 'eerste' ? null : document.getElementById(doel);
+      if (!v) v = form.querySelector('input, select, textarea');
+      if (v) { v.focus(); if (form.scrollIntoView) form.scrollIntoView({ block: 'nearest' }); }
+    }, 0);
+  }
   return form;
 }
 
-function kaartBewonerTekst_(p, data, wacht) {
+// Het formulier 'Wijzigen' van een adres in de lijst.
+function kaartWijzigFormulier_(f) {
+  return kaartAdresFormulier_(f, { id: 'wijk-f', voorvoegsel: 'wijk-f', titel: 'Adres wijzigen', opslaanTekst: 'Opslaan', bijOpslaan: kaartOpslaan_, bijAnnuleren: kaartSluit_,
+    hertekenen: wijkregisterTekenLijst_ });
+}
+
+// ---- alleen kijken ----
+
+function kaartBewonerTekst_(p, data) {
   var l = kaartLeeftijd(p, kaartVandaag(data), data.leeftijdsgroepen);
   // is de leeftijd onbekend (geen geboortejaar), dan staat er alleen 'leeftijd onbekend': kind of volwassene weten we dan niet
   var sub = [l.leeftijd === null ? l.tekst : l.soort + ', ' + l.tekst];
@@ -251,119 +480,21 @@ function kaartBewonerTekst_(p, data, wacht) {
   if (dieet.length > 0) sub.push('dieet: ' + dieet.join(', '));
   if (p.dieetToelichting) sub.push('toelichting: ' + p.dieetToelichting);
   if (p.ehbo) sub.push('EHBO');
-  return [el('span', { class: 'rij-titel' }, p.voornaam || 'Zonder naam'), wacht ? ' ' : null, wacht ? bewerkenWachtLabel(wacht) : null,
-    el('div', { class: 'rij-sub' }, sub.join(' · '))];
+  return [el('span', { class: 'rij-titel' }, p.voornaam || 'Zonder naam'), el('div', { class: 'rij-sub' }, sub.join(' · '))];
 }
 
-function kaartBewonersBlok_(a, mag) {
-  var s = wijkregisterStaat;
-  var data = kaartData_();
-  var personen = a.personen || [];
-  var wacht = bewerkenWachtVoor(s.wacht, a.adrescode, KAART_BEWONER_TYPEN);
-  var f = s.kaart;
-  var rijen = personen.map(function (p, i) {
-    if (mag && f && f.soort === 'bewoner' && f.modus === 'wijzig' && f.adrescode === a.adrescode && f.index === i) return el('li', null, kaartBewonerFormulier_(f));
-    var eigen = wacht.filter(function (w) { return w.gegevens.index === i; });
-    if (eigen.length > 0) {
-      var laatste = eigen[eigen.length - 1];
-      if (laatste.type === 'registerBewonerVerwijderen') return el('li', { class: 'bewerken-wacht-rij' }, kaartBewonerTekst_(p, data, 'wordt verwijderd'));
-      var nieuw = Object.assign({}, p, { voornaam: laatste.gegevens.voornaam, geboortemaand: laatste.gegevens.geboortemaand, geboortejaar: laatste.gegevens.geboortejaar,
-        dieet: laatste.gegevens.dieet, dieetToelichting: laatste.gegevens.dieetToelichting, ehbo: laatste.gegevens.ehbo });
-      return el('li', { class: 'bewerken-wacht-rij' }, kaartBewonerTekst_(nieuw, data, 'wordt verwerkt'));
-    }
-    var delen = kaartBewonerTekst_(p, data, null);
-    // zolang er voor dit adres bewoners worden verwerkt kloppen de plekken niet meer: geen knoppen
-    if (wacht.length > 0 || !mag) return el('li', null, delen);
-    if (s.kaartBevestig && s.kaartBevestig.soort === 'bewoner' && s.kaartBevestig.adrescode === a.adrescode && s.kaartBevestig.index === i) {
-      delen.push(kaartBevestigStrook_('Weet je zeker dat je ' + (p.voornaam || 'deze bewoner') + ' uit het wijkregister wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-        function () { kaartBewonerVerwijder_(a, p, i); }));
-    } else {
-      delen.push(el('div', { class: 'knoppen bewerken-knoppen' },
-        el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
-          kaartOpen_({ soort: 'bewoner', modus: 'wijzig', adrescode: a.adrescode, index: i, oud: kaartBewonerOud(p), voornaam: p.voornaam,
-            geboortemaand: p.geboortemaand === null || p.geboortemaand === undefined ? '' : String(p.geboortemaand),
-            geboortejaar: p.geboortejaar === null || p.geboortejaar === undefined ? '' : String(p.geboortejaar),
-            dieet: (p.dieet || []).slice(), dieetToelichting: p.dieetToelichting || '', ehbo: p.ehbo === true });
-        } }, 'Wijzigen'),
-        el('button', { type: 'button', class: 'knop knop-klein knop-gevaar', onclick: function () { kaartVraagVerwijder_('bewoner', a.adrescode, i); } }, 'Verwijderen')));
-    }
-    return el('li', null, delen);
-  });
-  wacht.filter(function (w) { return w.type === 'registerBewonerOpslaan' && w.gegevens.index === undefined; }).forEach(function (w) {
-    rijen.push(el('li', { class: 'bewerken-wacht-rij' }, kaartBewonerTekst_(w.gegevens, data, 'wordt toegevoegd')));
-  });
-  var nieuwFormulier = mag && f && f.soort === 'bewoner' && f.modus === 'nieuw' && f.adrescode === a.adrescode;
-  if (nieuwFormulier) rijen.push(el('li', null, kaartBewonerFormulier_(f)));
-  var aantalNu = personen.length;
-  return el('div', { class: 'deeln-blok' }, el('strong', null, 'Bewoners (' + aantalNu + ')'),
-    rijen.length === 0 ? el('div', { class: 'rij-sub' }, 'Geen bewoners bewaard.') : el('ul', { class: 'deeln-personen' }, rijen),
-    mag && !nieuwFormulier && wacht.length === 0 ? el('div', { class: 'knoppen bewerken-knoppen' },
-      el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
-        kaartOpen_({ soort: 'bewoner', modus: 'nieuw', adrescode: a.adrescode, voornaam: '', geboortemaand: '', geboortejaar: '', dieet: [], dieetToelichting: '', ehbo: false });
-      } }, 'Bewoner toevoegen')) : null);
+function kaartContactTekst_(c) {
+  return [el('span', { class: 'rij-titel' }, wijkregisterNaam_(c) || 'Zonder naam'),
+    c.email ? el('div', null, wijkregisterMailLink_(c.email)) : null,
+    c.telefoon ? el('div', null, wijkregisterTelLink_(c.telefoon)) : null,
+    c.toestemming ? el('div', { class: 'rij-sub' }, c.toestemming) : null];
 }
 
-function kaartSpulTekst_(sp, wacht) {
+function kaartSpulTekst_(sp) {
   var sub = [];
   if (sp.aantal !== null && sp.aantal !== undefined && sp.aantal !== '') sub.push('aantal: ' + sp.aantal);
   if (sp.opmerking) sub.push(sp.opmerking);
-  return [el('span', { class: 'rij-titel' }, sp.wat || 'Zonder naam'), wacht ? ' ' : null, wacht ? bewerkenWachtLabel(wacht) : null,
-    sub.length > 0 ? el('div', { class: 'rij-sub' }, sub.join(' · ')) : null];
-}
-
-function kaartSpullenBlok_(a, mag) {
-  var s = wijkregisterStaat;
-  var spullen = a.spullen || [];
-  var wacht = bewerkenWachtVoor(s.wacht, a.adrescode, KAART_SPUL_TYPEN);
-  var f = s.kaart;
-  var rijen = spullen.map(function (sp, i) {
-    if (mag && f && f.soort === 'spul' && f.modus === 'wijzig' && f.adrescode === a.adrescode && f.index === i) return el('li', null, kaartSpulFormulier_(f));
-    var eigen = wacht.filter(function (w) { return w.gegevens.index === i; });
-    if (eigen.length > 0) {
-      var laatste = eigen[eigen.length - 1];
-      if (laatste.type === 'registerSpullenVerwijderen') return el('li', { class: 'bewerken-wacht-rij' }, kaartSpulTekst_(sp, 'wordt verwijderd'));
-      return el('li', { class: 'bewerken-wacht-rij' }, kaartSpulTekst_({ wat: laatste.gegevens.wat, aantal: laatste.gegevens.aantal, opmerking: laatste.gegevens.opmerking }, 'wordt verwerkt'));
-    }
-    var delen = kaartSpulTekst_(sp, null);
-    if (wacht.length > 0 || !mag) return el('li', null, delen);
-    if (s.kaartBevestig && s.kaartBevestig.soort === 'spul' && s.kaartBevestig.adrescode === a.adrescode && s.kaartBevestig.index === i) {
-      delen.push(kaartBevestigStrook_('Weet je zeker dat je "' + (sp.wat || 'dit spul') + '" uit het wijkregister wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-        function () { kaartSpulVerwijder_(a, sp, i); }));
-    } else {
-      delen.push(el('div', { class: 'knoppen bewerken-knoppen' },
-        el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
-          kaartOpen_({ soort: 'spul', modus: 'wijzig', adrescode: a.adrescode, index: i, oud: kaartSpulOud(sp), wat: sp.wat,
-            aantal: sp.aantal === null || sp.aantal === undefined ? '' : String(sp.aantal), opmerking: sp.opmerking || '' });
-        } }, 'Wijzigen'),
-        el('button', { type: 'button', class: 'knop knop-klein knop-gevaar', onclick: function () { kaartVraagVerwijder_('spul', a.adrescode, i); } }, 'Verwijderen')));
-    }
-    return el('li', null, delen);
-  });
-  wacht.filter(function (w) { return w.type === 'registerSpullenOpslaan' && w.gegevens.index === undefined; }).forEach(function (w) {
-    rijen.push(el('li', { class: 'bewerken-wacht-rij' }, kaartSpulTekst_(w.gegevens, 'wordt toegevoegd')));
-  });
-  var nieuwFormulier = mag && f && f.soort === 'spul' && f.modus === 'nieuw' && f.adrescode === a.adrescode;
-  if (nieuwFormulier) rijen.push(el('li', null, kaartSpulFormulier_(f)));
-  return el('div', { class: 'deeln-blok' }, el('strong', null, 'Spullen om te lenen (' + spullen.length + ')'),
-    rijen.length === 0 ? el('div', { class: 'rij-sub' }, 'Geen spullen bewaard.') : el('ul', { class: 'deeln-personen' }, rijen),
-    mag && !nieuwFormulier && wacht.length === 0 ? el('div', { class: 'knoppen bewerken-knoppen' },
-      el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
-        kaartOpen_({ soort: 'spul', modus: 'nieuw', adrescode: a.adrescode, wat: '', aantal: '', opmerking: '' });
-      } }, 'Spul toevoegen')) : null);
-}
-
-function kaartOpmerkingBlok_(a, mag) {
-  var s = wijkregisterStaat;
-  var f = s.kaart;
-  var wacht = bewerkenWachtVoor(s.wacht, a.adrescode, KAART_OPMERKING_TYPEN);
-  if (mag && f && f.soort === 'opmerking' && f.adrescode === a.adrescode) return el('div', { class: 'deeln-blok' }, el('strong', null, 'Opmerking'), kaartOpmerkingFormulier_(f));
-  var tekst = wacht.length > 0 ? wacht[wacht.length - 1].gegevens.opmerking : (a.opmerking || '');
-  return el('div', { class: 'deeln-blok' }, el('strong', null, 'Opmerking'), wacht.length > 0 ? bewerkenWachtLabel('wordt verwerkt') : null,
-    tekst === '' ? el('div', { class: 'rij-sub' }, 'Geen opmerking.') : el('div', { style: 'white-space:pre-wrap' }, tekst),
-    mag && wacht.length === 0 ? el('div', { class: 'knoppen bewerken-knoppen' },
-      el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
-        kaartOpen_({ soort: 'opmerking', adrescode: a.adrescode, opmerking: a.opmerking || '', oud: a.opmerking || '' });
-      } }, tekst === '' ? 'Opmerking toevoegen' : 'Opmerking wijzigen')) : null);
+  return [el('span', { class: 'rij-titel' }, sp.wat || 'Zonder naam'), sub.length > 0 ? el('div', { class: 'rij-sub' }, sub.join(' · ')) : null];
 }
 
 function kaartDeelnameBlok_(a) {
@@ -377,6 +508,36 @@ function kaartDeelnameBlok_(a) {
           el('span', { class: 'rij-sub' }, ' ' + (h.aangemeld ? 'aangemeld' : 'niet aangemeld') + (h.betaald ? ', betaald' : '')));
       })),
     el('div', { class: 'rij-sub' }, t.tekst), t.verlopen ? bewerkenWachtLabel('bewaartermijn verlopen') : null);
+}
+
+// Het hele detail van een adres. In de leesstand: contacten, bewoners, spullen, opmerking en deelname, met één knop Wijzigen (alleen met mag, en niet zolang er een opdracht voor dit adres
+// wordt verwerkt). In de wijzigstand staat het formulier op de plek van contacten, bewoners, spullen en opmerking.
+function kaartDetail(a, mag) {
+  var s = wijkregisterStaat;
+  var data = kaartData_();
+  var wacht = bewerkenWachtVoor(s.wacht, a.adrescode, KAART_TYPEN);
+  var f = s.kaart;
+  var delen = [];
+  if (mag && f && f.adrescode === a.adrescode) {
+    delen.push(kaartWijzigFormulier_(f));
+    delen.push(kaartDeelnameBlok_(a));
+    return el('div', { class: 'deeln-detail' }, delen);
+  }
+  var w = kaartWeergaveVan(a, wacht.length > 0 ? wacht[wacht.length - 1].gegevens : null, wijkregisterToestemming_);
+  var blok = function (titel, rijen, leeg) {
+    return el('div', { class: 'deeln-blok' }, el('strong', null, titel), rijen.length === 0 ? el('div', { class: 'rij-sub' }, leeg) : el('ul', { class: 'deeln-personen' }, rijen));
+  };
+  if (mag) {
+    delen.push(el('div', { class: 'knoppen bewerken-knoppen' }, w.wacht ? bewerkenWachtLabel('wordt verwerkt') :
+      el('button', { type: 'button', class: 'knop knop-klein', onclick: function () { kaartOpen_(a); } }, 'Wijzigen')));
+  }
+  delen.push(blok(w.contacten.length + (w.contacten.length === 1 ? ' contact' : ' contacten'), w.contacten.map(function (c) { return el('li', w.wacht ? { class: 'bewerken-wacht-rij' } : null, kaartContactTekst_(c)); }), 'Geen contact bewaard.'));
+  delen.push(blok('Bewoners (' + w.bewoners.length + ')', w.bewoners.map(function (p) { return el('li', w.wacht ? { class: 'bewerken-wacht-rij' } : null, kaartBewonerTekst_(p, data)); }), 'Geen bewoners bewaard.'));
+  delen.push(blok('Spullen om te lenen (' + w.spullen.length + ')', w.spullen.map(function (sp) { return el('li', w.wacht ? { class: 'bewerken-wacht-rij' } : null, kaartSpulTekst_(sp)); }), 'Geen spullen bewaard.'));
+  delen.push(el('div', { class: 'deeln-blok' }, el('strong', null, 'Opmerking'),
+    w.opmerking === '' ? el('div', { class: 'rij-sub' }, 'Geen opmerking.') : el('div', { style: 'white-space:pre-wrap' }, w.opmerking)));
+  delen.push(kaartDeelnameBlok_(a));
+  return el('div', { class: 'deeln-detail' }, delen);
 }
 
 // ---- verlopen gegevens wissen ----
@@ -414,7 +575,3 @@ function kaartVerlopenBalk() {
   return delen;
 }
 
-// Het hele detail van een adres: bewoners, contacten (zoals in 2b), spullen, opmerking en deelname. De contacten tekent scherm-wijkregister.js zelf.
-function kaartBlokken(a, mag) {
-  return { bewoners: kaartBewonersBlok_(a, mag), spullen: kaartSpullenBlok_(a, mag), opmerking: kaartOpmerkingBlok_(a, mag), deelname: kaartDeelnameBlok_(a) };
-}
