@@ -465,7 +465,7 @@ function bonKnopSync_() {
   var knop = document.getElementById('bon-knop');
   if (!knop) return;
   var vak = document.getElementById('scherm');
-  var open = !!(vak && vak.querySelector('.bewerken-formulier, .opslaanbalk, '));
+  var open = !!(vak && vak.querySelector('.bewerken-formulier, .opslaanbalk, .begr-formulier'));
   var namen = toegestaneSchermen_().map(function (s) { return s.naam; });
   knop.hidden = !menuBonKnopZichtbaar(namen, beheerApp.huidig, open);
 }
