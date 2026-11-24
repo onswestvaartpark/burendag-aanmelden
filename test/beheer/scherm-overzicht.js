@@ -30,7 +30,11 @@ var OVERZICHT_ACTIES = {
   'bank inlezen': 'Bankafschrift ingelezen',
   'beheerInloggen': 'Ingelogd op de beheerpagina',
   'beheerLedenOpslaan': 'Commissieleden aangepast',
-  'beheerRollenOpslaan': 'Rollen aangepast'
+  'beheerRollenOpslaan': 'Rollen aangepast',
+  'registerContactOpslaan': 'Contact gewijzigd',
+  'registerContactVerwijderen': 'Contact verwijderd',
+  'registerAdresToevoegen': 'Adres toegevoegd',
+  'deelnemerContactOpslaan': 'Deelnemer gewijzigd'
 };
 
 var OVERZICHT_OPDRACHT_TYPEN = {
@@ -38,7 +42,11 @@ var OVERZICHT_OPDRACHT_TYPEN = {
   begrotingPostOpslaan: 'Begrotingspost',
   begrotingPostVerwijderen: 'Begrotingspost verwijderd',
   geldbronOpslaan: 'Geldbron',
-  geldbronVerwijderen: 'Geldbron verwijderd'
+  geldbronVerwijderen: 'Geldbron verwijderd',
+  registerContactOpslaan: 'Contact gewijzigd',
+  registerContactVerwijderen: 'Contact verwijderd',
+  registerAdresToevoegen: 'Adres toegevoegd',
+  deelnemerContactOpslaan: 'Deelnemer gewijzigd'
 };
 
 // Per soort te doen: pictogram (svg-binnenwerk) en knoptekst; andere soorten krijgen de standaard.

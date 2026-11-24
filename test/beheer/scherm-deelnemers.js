@@ -1,7 +1,9 @@
-// Scherm Deelnemers: totalen, zoeken, filter en de lijst van huishoudens met uitklapbaar detail. Alleen lezen.
+// Scherm Deelnemers: totalen, zoeken, filter en de lijst van huishoudens met uitklapbaar detail.
 // De gegevens komen direct van het achterwerk (beheerDeelnemers), staan alleen in het geheugen en worden niet bewaard op het apparaat.
 // Namen, contactgegevens en personen zitten er alleen in met het recht persoonsgegevens_zien: het scherm toont wat er is.
-// Vereist app.js (registreerScherm, el, euro, meervoud_, heeftRecht) en api.js (maakDirecteLading).
+// Met ook het recht deelnemer_bewerken kan de commissie het contact van een huishouden wijzigen (fase 2b, opdracht deelnemerContactOpslaan);
+// de wijziging staat tot de server klaar is als 'wordt verwerkt' in het geheugen van dit scherm.
+// Vereist app.js (registreerScherm, el, euro, meervoud_, heeftRecht), api.js (maakDirecteLading) en bewerken.js.
 
 var DEELNEMERS_PAGINA = 60;
 var DEELNEMERS_FILTERS = [
@@ -11,14 +13,24 @@ var DEELNEMERS_FILTERS = [
 ];
 
 var deelnemersLading = maakDirecteLading('beheerDeelnemers');
-var deelnemersStaat = { email: '', zoek: '', filter: 'alles', toon: DEELNEMERS_PAGINA, open: {} };
-var deelnemersVak = null; // { wortel, totalen, status, lijst, meer }
+// formulier = het open formulier 'Contact wijzigen', wacht = opdrachten die dit scherm stuurde en die de server nog niet klaar heeft
+function deelnemersNieuweStaat_(email) {
+  return { email: email, zoek: '', filter: 'alles', toon: DEELNEMERS_PAGINA, open: {}, formulier: null, wacht: maakBewerkenWacht(), handtekening: '' };
+}
+var deelnemersStaat = deelnemersNieuweStaat_('');
+var deelnemersVak = null; // { wortel, totalen, melding, status, chips, lijst, meer }
+var deelnemersApp = null; // de laatste staat van de schil (rechten, stuurOpdracht)
 
 // Uitgelogd, sessiefout of een ander account: alles uit het geheugen.
 function deelnemersVergeet() {
   deelnemersLading.vergeet();
-  deelnemersStaat = { email: deelnemersStaat.email, zoek: '', filter: 'alles', toon: DEELNEMERS_PAGINA, open: {} };
+  deelnemersStaat = deelnemersNieuweStaat_(deelnemersStaat.email);
   deelnemersVak = null;
+  deelnemersApp = null;
+}
+
+function deelnemersMagBewerken_() {
+  return !!deelnemersApp && bewerkenMag(deelnemersApp.rechten);
 }
 
 function deelnemersAdresVergelijk_(a, b) {
@@ -76,13 +88,63 @@ function deelnemersPersoonTekst_(p) {
   return delen.join(' · ');
 }
 
+// Het blok Contact: de gegevens (of de nieuwe, als 'wordt verwerkt'), met 'Contact wijzigen' of het formulier.
+function deelnemersContactBlok_(h) {
+  var s = deelnemersStaat;
+  var mag = deelnemersMagBewerken_();
+  var f = s.formulier;
+  if (mag && f && f.adrescode === h.adrescode) return el('div', { class: 'deeln-blok' }, el('strong', null, 'Contact'), deelnemersContactFormulier_(f));
+  var wacht = bewerkenWachtVoor(s.wacht, h.adrescode, ['deelnemerContactOpslaan']);
+  var tonen = h;
+  if (wacht.length > 0) {
+    var g = wacht[wacht.length - 1].gegevens;
+    tonen = { naam: (g.voornaam + ' ' + (g.achternaam || '')).trim(), email: g.email, telefoon: g.telefoon };
+  }
+  var contact = [];
+  if (tonen.naam) contact.push(el('div', null, tonen.naam));
+  if (tonen.email) contact.push(el('div', null, deelnemersMailLink_(tonen.email)));
+  if (tonen.telefoon) contact.push(el('div', null, deelnemersTelLink_(tonen.telefoon)));
+  if (wacht.length > 0) contact.push(el('div', null, bewerkenWachtLabel('wordt verwerkt')));
+  else if (mag) {
+    contact.push(el('div', { class: 'knoppen bewerken-knoppen' }, el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
+      s.formulier = { adrescode: h.adrescode, oud: { email: h.email || '' }, voornaam: h.voornaam || '', achternaam: h.achternaam || '', email: h.email || '', telefoon: h.telefoon || '', fouten: [], focus: true };
+      deelnemersTekenLijst_();
+    } }, 'Contact wijzigen')));
+  }
+  return contact.length > 0 ? el('div', { class: 'deeln-blok' }, el('strong', null, 'Contact'), contact) : null;
+}
+
+function deelnemersContactFormulier_(f) {
+  var form = bewerkenFormulier({
+    id: 'deeln-contactformulier', titel: 'Contact wijzigen', velden: bewerkenContactVelden(f, 'deeln-c'), fouten: f.fouten || [],
+    opslaanTekst: 'Opslaan', bijOpslaan: deelnemersContactOpslaan_, bijAnnuleren: function () { deelnemersStaat.formulier = null; deelnemersTekenLijst_(); }
+  });
+  if (f.focus) { f.focus = false; setTimeout(function () { bewerkenFocus(form); }, 0); }
+  return form;
+}
+
+function deelnemersContactOpslaan_() {
+  var s = deelnemersStaat;
+  var f = s.formulier;
+  if (!f || !deelnemersMagBewerken_()) return;
+  var c = controleerContactGegevens(f);
+  if (c.fouten.length > 0) {
+    f.fouten = c.fouten;
+    deelnemersTekenLijst_();
+    bewerkenFocusFouten(document.getElementById('deeln-contactformulier'));
+    return;
+  }
+  var gegevens = { adrescode: f.adrescode, voornaam: c.schoon.voornaam, achternaam: c.schoon.achternaam, email: c.schoon.email, telefoon: c.schoon.telefoon, oud: f.oud };
+  s.formulier = null;
+  var uit = deelnemersApp.stuurOpdracht('deelnemerContactOpslaan', gegevens);
+  bewerkenWachtVoegToe(s.wacht, uit.id, 'deelnemerContactOpslaan', gegevens);
+  deelnemersTekenLijst_();
+}
+
 function deelnemersDetail_(h) {
   var delen = [];
-  var contact = [];
-  if (h.naam) contact.push(el('div', null, h.naam));
-  if (h.email) contact.push(el('div', null, deelnemersMailLink_(h.email)));
-  if (h.telefoon) contact.push(el('div', null, deelnemersTelLink_(h.telefoon)));
-  if (contact.length > 0) delen.push(el('div', { class: 'deeln-blok' }, el('strong', null, 'Contact'), contact));
+  var contactBlok = deelnemersContactBlok_(h);
+  if (contactBlok) delen.push(contactBlok);
   var geld = 'Bedrag ' + euro(h.bedrag) + ', betaald ' + euro(h.betaald) + (h.openstaand > 0 ? ', nog ' + euro(h.openstaand) : '') + '.';
   var datum = deelnemersDatum_(h.aangemeldOp);
   delen.push(el('div', { class: 'deeln-blok' }, el('strong', null, 'Betaling'), el('div', null, geld), datum ? el('div', { class: 'rij-sub' }, 'Aangemeld op ' + datum) : null));
@@ -190,11 +252,35 @@ function deelnemersTekenChips_() {
   deelnemersVak.chips.replaceChildren.apply(deelnemersVak.chips, chips);
 }
 
+// Stroken met wat niet lukte (de melding van de server), met Sluiten.
+function deelnemersTekenMelding_() {
+  if (!deelnemersVak) return;
+  var s = deelnemersStaat;
+  deelnemersVak.melding.replaceChildren(bewerkenFoutStroken(s.wacht, function (i) { s.wacht.fouten.splice(i, 1); deelnemersTekenMelding_(); }));
+}
+
 function deelnemersAlles_() {
   if (!deelnemersVak) return;
+  var l = deelnemersLading;
+  // de gegevens zijn opnieuw opgehaald: wat klaar was hoeft niet meer als 'wordt verwerkt' te staan
+  if (!l.bezig && !l.fout && l.data) bewerkenWachtOpruim(deelnemersStaat.wacht);
   deelnemersTekenTotalen_();
+  deelnemersTekenMelding_();
   deelnemersTekenStatus_();
   deelnemersTekenLijst_();
+}
+
+// Een nieuwe stand van de schil: is een opdracht van dit scherm klaar, dan de gegevens opnieuw ophalen; is hij niet gelukt, dan de melding tonen.
+// Geeft terug of er iets is veranderd dat getekend moet worden.
+function deelnemersVolg_(staat) {
+  deelnemersApp = staat;
+  var s = deelnemersStaat;
+  var uit = bewerkenWachtVerwerk(s.wacht, staat.momentopname, bewerkenMislukteIds());
+  var handtekening = bewerkenWachtHandtekening(s.wacht);
+  var gewijzigd = uit.klaar + uit.fout + uit.weg + uit.verlopen > 0 || handtekening !== s.handtekening;
+  s.handtekening = handtekening;
+  if (uit.klaar + uit.verlopen > 0 && deelnemersVak) deelnemersLading.haal();
+  return gewijzigd;
 }
 
 // ---- scherm ----
@@ -208,6 +294,7 @@ function deelnemersVernieuw() {
 function deelnemersTeken_(container, staat) {
   var email = staat.email || '';
   if (deelnemersStaat.email !== email) { deelnemersVergeet(); deelnemersStaat.email = email; }
+  deelnemersApp = staat;
   var zoekveld = el('input', {
     type: 'search', id: 'deeln-zoek', class: 'deeln-zoek', autocomplete: 'off', value: deelnemersStaat.zoek,
     placeholder: 'Zoek op adres' + (heeftRecht(staat.rechten || [], 'persoonsgegevens_zien') ? ', naam of e-mail' : ''),
@@ -216,6 +303,7 @@ function deelnemersTeken_(container, staat) {
   deelnemersVak = {
     wortel: container,
     totalen: el('section', { class: 'tegels', 'aria-label': 'Totalen' }),
+    melding: el('div', { class: 'stroken bewerken-meldingen' }),
     status: el('div', { class: 'deeln-status' }),
     chips: el('div', { class: 'kas-chips', role: 'group', 'aria-label': 'Filter op betaling' }),
     lijst: el('div', { class: 'deeln-lijst' }),
@@ -223,12 +311,15 @@ function deelnemersTeken_(container, staat) {
   };
   deelnemersLading.bijWijziging = deelnemersAlles_;
   container.replaceChildren(
-    el('header', { class: 'paginakop' }, el('div', null, el('h1', null, 'Deelnemers'), el('p', null, 'Wie er zijn aangemeld en wie nog moet betalen. Alleen kijken, hier past niets aan.'))),
+    el('header', { class: 'paginakop' }, el('div', null, el('h1', null, 'Deelnemers'), el('p', null, 'Wie er zijn aangemeld en wie nog moet betalen.' +
+      (deelnemersMagBewerken_() ? ' Het contact van een huishouden kun je hier corrigeren; bedragen en betalingen blijven zoals ze zijn.' : ' Alleen kijken, hier past niets aan.')))),
+    deelnemersVak.melding,
     deelnemersVak.totalen,
     el('section', { class: 'kaart', 'aria-label': 'Huishoudens' },
       el('label', { class: 'veld', for: 'deeln-zoek' }, 'Zoeken', zoekveld),
       deelnemersVak.chips, deelnemersVak.status, deelnemersVak.lijst, deelnemersVak.meer));
   deelnemersTekenChips_();
+  deelnemersVolg_(staat);
   deelnemersAlles_();
   deelnemersLading.haal(); // het scherm is geopend: altijd vers ophalen
 }
@@ -236,7 +327,9 @@ function deelnemersTeken_(container, staat) {
 // Nieuwe momentopname: het scherm blijft zoals het is (de gegevens zijn niet van de momentopname). Is het scherm weg, dan opnieuw tekenen.
 function deelnemersBijwerken_(container, staat) {
   if (!deelnemersVak || deelnemersVak.wortel !== container || !container.contains(deelnemersVak.lijst)) { deelnemersTeken_(container, staat); return; }
-  if (deelnemersStaat.email !== (staat.email || '')) deelnemersTeken_(container, staat);
+  if (deelnemersStaat.email !== (staat.email || '')) { deelnemersTeken_(container, staat); return; }
+  var mocht = deelnemersMagBewerken_();
+  if (deelnemersVolg_(staat) || mocht !== deelnemersMagBewerken_()) deelnemersAlles_();
 }
 
 registreerScherm({

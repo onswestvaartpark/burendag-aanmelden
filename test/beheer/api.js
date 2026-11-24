@@ -9,7 +9,7 @@ function beheerSleutel(naam) {
 }
 
 // Opslag in de vorm die wachtrij.js verwacht: { lees(sleutel), schrijf(sleutel, waarde) }. Waarden zijn JSON.
-var beheerOpslag = {
+var beheerOpslagVast = {
   lees: function (naam) {
     try {
       var tekst = localStorage.getItem(beheerSleutel(naam));
@@ -23,6 +23,9 @@ var beheerOpslag = {
     try { localStorage.removeItem(beheerSleutel(naam)); } catch (e) { /* opslag niet beschikbaar */ }
   }
 };
+
+// De opslag die de schil gebruikt: opdrachten met gegevens van buren (fase 2b) blijven in het geheugen en komen nooit in localStorage (zie maakGesplitsteOpslag).
+var beheerOpslag = maakGesplitsteOpslag(beheerOpslagVast, maakGeheugenOpslag());
 
 // Eén verzoek aan het koppelscript, met de sessie uit de opslag. Geeft het antwoord ({ok, ...}) of gooit bij geen verbinding,
 // een tijdsoverschrijding of een onleesbaar antwoord.
