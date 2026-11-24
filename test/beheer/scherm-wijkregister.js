@@ -255,6 +255,14 @@ function wijkregisterAdresOpslaan_() {
   if (wijkregisterStraten_().indexOf(f.straat) === -1) fouten.push('Kies een straat uit de lijst.');
   var nr = null;
   try { nr = controleerHuisnummerEnToevoeging(f.huisnummer, f.toevoeging); } catch (e) { fouten.push(String(e && e.message || e)); }
+  if (nr) {
+    var gezocht = (String(f.straat) + String(nr.huisnummer) + String(nr.toevoeging || '')).replace(/\s+/g, '').toLowerCase();
+    var data = wijkregisterLading.data;
+    var bestaand = data && Array.isArray(data.adressen) ? data.adressen.filter(function (a) {
+      return String(a.adres || '').replace(/\s+/g, '').toLowerCase() === gezocht;
+    })[0] : null;
+    if (bestaand) fouten.push('Dit adres staat al in het wijkregister (' + bestaand.adres + '). Voeg daar een contact toe.');
+  }
   var c = controleerContactGegevens(f);
   fouten = fouten.concat(c.fouten);
   if (fouten.length > 0) {
