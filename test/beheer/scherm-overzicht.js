@@ -34,7 +34,13 @@ var OVERZICHT_ACTIES = {
   'registerContactOpslaan': 'Contact gewijzigd',
   'registerContactVerwijderen': 'Contact verwijderd',
   'registerAdresToevoegen': 'Adres toegevoegd',
-  'deelnemerContactOpslaan': 'Deelnemer gewijzigd'
+  'deelnemerContactOpslaan': 'Deelnemer gewijzigd',
+  'registerBewonerOpslaan': 'Bewoner opgeslagen',
+  'registerBewonerVerwijderen': 'Bewoner verwijderd',
+  'registerSpullenOpslaan': 'Spul opgeslagen',
+  'registerSpullenVerwijderen': 'Spul verwijderd',
+  'registerOpmerkingOpslaan': 'Opmerking opgeslagen',
+  'registerOpschonen': 'Verlopen gegevens gewist'
 };
 
 var OVERZICHT_OPDRACHT_TYPEN = {
@@ -46,7 +52,13 @@ var OVERZICHT_OPDRACHT_TYPEN = {
   registerContactOpslaan: 'Contact gewijzigd',
   registerContactVerwijderen: 'Contact verwijderd',
   registerAdresToevoegen: 'Adres toegevoegd',
-  deelnemerContactOpslaan: 'Deelnemer gewijzigd'
+  deelnemerContactOpslaan: 'Deelnemer gewijzigd',
+  registerBewonerOpslaan: 'Bewoner opgeslagen',
+  registerBewonerVerwijderen: 'Bewoner verwijderd',
+  registerSpullenOpslaan: 'Spul opgeslagen',
+  registerSpullenVerwijderen: 'Spul verwijderd',
+  registerOpmerkingOpslaan: 'Opmerking opgeslagen',
+  registerOpschonen: 'Verlopen gegevens gewist'
 };
 
 // Per soort te doen: pictogram (svg-binnenwerk) en knoptekst; andere soorten krijgen de standaard.

@@ -151,7 +151,8 @@ function samenvoegMetMomentopname(momentopname, wachtrij, verstuurd) {
 
 // Deze opdrachttypen bevatten namen, e-mailadressen of telefoonnummers van buren. Ze staan in de wachtrij, bij 'verstuurd' en bij 'mislukt'
 // alleen in het geheugen van de pagina: sluit je de pagina voordat ze verstuurd zijn, dan gaan ze verloren (en dat is hier bedoeld).
-var PRIVE_OPDRACHT_TYPEN = ['registerContactOpslaan', 'registerContactVerwijderen', 'registerAdresToevoegen', 'deelnemerContactOpslaan'];
+var PRIVE_OPDRACHT_TYPEN = ['registerContactOpslaan', 'registerContactVerwijderen', 'registerAdresToevoegen', 'deelnemerContactOpslaan',
+  'registerBewonerOpslaan', 'registerBewonerVerwijderen', 'registerSpullenOpslaan', 'registerSpullenVerwijderen', 'registerOpmerkingOpslaan', 'registerOpschonen'];
 
 function isPriveOpdracht(opdracht) {
   return !!opdracht && PRIVE_OPDRACHT_TYPEN.indexOf(opdracht.type) !== -1;

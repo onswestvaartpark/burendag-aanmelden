@@ -8,7 +8,13 @@ var BEWERKEN_TYPEN = {
   registerContactOpslaan: 'Contact gewijzigd',
   registerContactVerwijderen: 'Contact verwijderd',
   registerAdresToevoegen: 'Adres toegevoegd',
-  deelnemerContactOpslaan: 'Deelnemer gewijzigd'
+  deelnemerContactOpslaan: 'Deelnemer gewijzigd',
+  registerBewonerOpslaan: 'Bewoner opgeslagen',
+  registerBewonerVerwijderen: 'Bewoner verwijderd',
+  registerSpullenOpslaan: 'Spul opgeslagen',
+  registerSpullenVerwijderen: 'Spul verwijderd',
+  registerOpmerkingOpslaan: 'Opmerking opgeslagen',
+  registerOpschonen: 'Verlopen gegevens wissen'
 };
 
 // Bewerken mag alleen met beide rechten: deelnemer_bewerken én persoonsgegevens_zien.
@@ -17,9 +23,10 @@ function bewerkenMag(rechten) {
 }
 
 // Het geheugen van een scherm voor opdrachten die het zelf heeft gestuurd: lijst = { id: { type, gegevens } } (de gegevens voor de
-// voorlopige weergave als 'wordt verwerkt'), fouten = [{ id, type, melding }] voor wat niet lukte (blijft staan tot de gebruiker sluit).
+// voorlopige weergave als 'wordt verwerkt'), fouten = [{ id, type, melding }] voor wat niet lukte (blijft staan tot de gebruiker sluit),
+// infos = [{ id, type, melding }] voor een opdracht die klaar is en iets te melden had (bijvoorbeeld hoeveel adressen er echt gewist zijn; ook tot Sluiten).
 function maakBewerkenWacht() {
-  return { lijst: {}, fouten: [] };
+  return { lijst: {}, fouten: [], infos: [] };
 }
 
 // Een opdracht die na zo lang nog niet klaar of mislukt is gemeld, wordt niet langer als 'wordt verwerkt' getoond (de pagina leest dan opnieuw).
@@ -31,7 +38,8 @@ function bewerkenWachtVoegToe(wacht, id, type, gegevens, nu) {
 }
 
 // Kijkt per eigen opdracht wat de server zegt (mijnOpdrachten van de momentopname) en past het geheugen aan:
-// - klaar: blijft in het geheugen met klaar = true tot het scherm zijn gegevens opnieuw heeft opgehaald (bewerkenWachtOpruim);
+// - klaar: blijft in het geheugen met klaar = true tot het scherm zijn gegevens opnieuw heeft opgehaald (bewerkenWachtOpruim); heeft de server een melding bij
+//   'klaar' gezet, dan komt die ook in wacht.infos;
 // - fout: gaat naar wacht.fouten met de melding van de server;
 // - door de server geweigerd (id staat in mislukteIds; de schil toont die melding zelf): weg.
 // - te oud (BEWERKEN_WACHT_MAX_MS, nu = tijd in ms) en nog niet klaar: weg, en verlopen telt mee zodat het scherm opnieuw leest.
@@ -47,7 +55,10 @@ function bewerkenWachtVerwerk(wacht, momentopname, mislukteIds, nu) {
     var o = eigen[id];
     if (!o && !item.klaar && typeof item.op === 'number' && tijd - item.op > BEWERKEN_WACHT_MAX_MS) { delete wacht.lijst[id]; uit.verlopen++; return; }
     if (!o || item.klaar) return;
-    if (o.status === 'klaar') { item.klaar = true; uit.klaar++; }
+    if (o.status === 'klaar') {
+      item.klaar = true; uit.klaar++;
+      if (typeof o.melding === 'string' && o.melding !== '') wacht.infos.push({ id: id, type: item.type, melding: o.melding });
+    }
     else if (o.status === 'fout') {
       delete wacht.lijst[id];
       wacht.fouten.push({ id: id, type: item.type, melding: String(o.melding || '') });
@@ -68,7 +79,7 @@ function bewerkenWachtAantal(wacht) {
 
 // Een korte vingerafdruk van wat het geheugen toont, zodat een scherm alleen opnieuw tekent als er iets verandert.
 function bewerkenWachtHandtekening(wacht) {
-  return Object.keys(wacht.lijst).sort().map(function (id) { return id + (wacht.lijst[id].klaar ? '!' : ''); }).join(',') + '|' + wacht.fouten.length;
+  return Object.keys(wacht.lijst).sort().map(function (id) { return id + (wacht.lijst[id].klaar ? '!' : ''); }).join(',') + '|' + wacht.fouten.length + (wacht.infos && wacht.infos.length > 0 ? '|i' + wacht.infos.length : '');
 }
 
 // De opdrachten in het geheugen van dit type voor dit adres, in volgorde van versturen (de sleutels zijn kenmerken met willekeurige volgorde, dus op toevoegvolgorde: Object.keys houdt die aan).
@@ -141,6 +152,15 @@ function bewerkenFoutStroken(wacht, sluit) {
     var wat = Object.prototype.hasOwnProperty.call(BEWERKEN_TYPEN, f.type) ? BEWERKEN_TYPEN[f.type] : 'De wijziging';
     return el('div', { class: 'strook strook-fout', role: 'alert' },
       el('span', { class: 'strook-tekst' }, wat + ' is niet gelukt' + (f.melding ? ': ' + f.melding : '.')),
+      el('button', { type: 'button', class: 'knop', onclick: function () { sluit(i); } }, 'Sluiten'));
+  });
+}
+
+// Strook met wat de server bij een gelukte opdracht meldde (zoals 'N adressen gewist'), met Sluiten. sluit(index) haalt hem weg.
+function bewerkenInfoStroken(wacht, sluit) {
+  return (wacht.infos || []).map(function (f, i) {
+    return el('div', { class: 'strook strook-ok', role: 'status' },
+      el('span', { class: 'strook-tekst' }, f.melding),
       el('button', { type: 'button', class: 'knop', onclick: function () { sluit(i); } }, 'Sluiten'));
   });
 }

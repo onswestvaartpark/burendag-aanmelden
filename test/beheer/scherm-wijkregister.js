@@ -3,7 +3,7 @@
 // alleen in het geheugen en worden niet bewaard op het apparaat.
 // Met ook het recht deelnemer_bewerken kan de commissie contacten corrigeren, toevoegen en verwijderen en een adres toevoegen (fase 2b).
 // Elke wijziging is een opdracht (stuurOpdracht) en staat tot de server klaar is als 'wordt verwerkt' in het geheugen van dit scherm.
-// Vereist app.js (registreerScherm, el, meervoud_), api.js (maakDirecteLading) en bewerken.js.
+// Vereist app.js (registreerScherm, el, meervoud_), api.js (maakDirecteLading), bewerken.js en huishoudkaart.js (bewoners, spullen, opmerking, deelname, bewaartermijn).
 
 var WIJKREGISTER_PAGINA = 60;
 
@@ -11,10 +11,13 @@ var wijkregisterLading = maakDirecteLading('beheerWijkregister');
 // formulier = het open contactformulier, bevestig = het contact waarvan het verwijderen wordt bevestigd, adresFormulier = het formulier 'Adres toevoegen',
 // wacht = opdrachten die dit scherm stuurde en die de server nog niet klaar heeft (alleen in het geheugen)
 function wijkregisterNieuweStaat_(email) {
-  return { email: email, zoek: '', toon: WIJKREGISTER_PAGINA, open: {}, formulier: null, bevestig: null, adresFormulier: null, wacht: maakBewerkenWacht(), handtekening: '' };
+  // kaart = het open formulier van de huishoudkaart (bewoner, spul of opmerking), kaartBevestig = wat verwijderd gaat worden, wisBevestig = de vraag voor het wissen
+  // van verlopen gegevens, filterVerlopen = alleen adressen met een verlopen bewaartermijn (huishoudkaart.js)
+  return { email: email, zoek: '', toon: WIJKREGISTER_PAGINA, open: {}, formulier: null, bevestig: null, adresFormulier: null, wacht: maakBewerkenWacht(), handtekening: '',
+    kaart: null, kaartBevestig: null, wisBevestig: false, filterVerlopen: false };
 }
 var wijkregisterStaat = wijkregisterNieuweStaat_('');
-var wijkregisterVak = null; // { wortel, status, melding, adres, lijst, meer }
+var wijkregisterVak = null; // { wortel, status, melding, adres, verlopen, lijst, meer }
 var wijkregisterApp = null; // de laatste staat van de schil (momentopname, rechten, stuurOpdracht)
 
 // Uitgelogd, sessiefout of een ander account: alles uit het geheugen.
@@ -122,23 +125,10 @@ function wijkregisterDetail_(a) {
     lijst.length === 0 ? el('div', { class: 'rij-sub' }, 'Geen contact bewaard.') : el('ul', { class: 'deeln-personen' }, lijst),
     mag && !nieuwFormulier && nieuwe.length === 0 && bewerkenWachtVoor(s.wacht, a.adrescode, WIJKREGISTER_CONTACT_TYPEN).length === 0 ? el('div', { class: 'knoppen bewerken-knoppen' },
       el('button', { type: 'button', class: 'knop knop-klein', onclick: function () { wijkregisterOpenContact_({ soort: 'nieuw', adrescode: a.adrescode, voornaam: '', achternaam: '', email: '', telefoon: '' }); } }, 'Contact toevoegen')) : null));
-  var personen = a.personen || [];
-  delen.push(el('div', { class: 'deeln-blok' }, el('strong', null, meervoud_(personen.length, 'persoon', 'personen')),
-    personen.length === 0 ? el('div', { class: 'rij-sub' }, 'Geen personen bewaard.') :
-      el('ul', { class: 'deeln-personen' }, personen.map(function (p) {
-        var sub = [];
-        if (p.geboortejaar !== null && p.geboortejaar !== undefined && p.geboortejaar !== '') sub.push('geboren ' + p.geboortejaar);
-        if (Array.isArray(p.dieet) && p.dieet.length > 0) sub.push('dieet: ' + p.dieet.join(', '));
-        if (p.ehbo) sub.push('EHBO');
-        return el('li', null, el('span', { class: 'rij-titel' }, p.voornaam || 'Zonder naam'), sub.length > 0 ? el('div', { class: 'rij-sub' }, sub.join(' · ')) : null);
-      }))));
-  var historie = a.historie || [];
-  delen.push(el('div', { class: 'deeln-blok' }, el('strong', null, 'Historie'),
-    historie.length === 0 ? el('div', { class: 'rij-sub' }, 'Nog geen jaren.') :
-      el('ul', { class: 'deeln-personen' }, historie.map(function (h) {
-        return el('li', null, el('span', { class: 'rij-titel' }, String(h.jaar)),
-          el('span', { class: 'rij-sub' }, ' ' + (h.aangemeld ? 'aangemeld' : 'niet aangemeld') + (h.betaald ? ', betaald' : '')));
-      }))));
+  // de rest van de huishoudkaart (bewoners, spullen, opmerking, deelname) staat in huishoudkaart.js
+  var kaart = kaartBlokken(a, mag);
+  delen.unshift(kaart.bewoners);
+  delen.push(kaart.spullen, kaart.opmerking, kaart.deelname);
   return el('div', { class: 'deeln-detail' }, delen);
 }
 
@@ -149,6 +139,8 @@ function wijkregisterOpenContact_(f) {
   f.focus = true;
   wijkregisterStaat.formulier = f;
   wijkregisterStaat.bevestig = null;
+  wijkregisterStaat.kaart = null;
+  wijkregisterStaat.kaartBevestig = null;
   wijkregisterStaat.open[f.adrescode] = true;
   wijkregisterTekenLijst_();
 }
@@ -290,7 +282,8 @@ function wijkregisterRij_(a) {
     el('span', { class: 'rij-tekst' },
       el('span', { class: 'rij-titel' }, a.adres || a.adrescode),
       namen ? el('span', { class: 'rij-sub deeln-naam' }, namen) : null,
-      el('span', { class: 'rij-sub deeln-naam' }, wijkregisterMeedeed_(a))));
+      el('span', { class: 'rij-sub deeln-naam' }, wijkregisterMeedeed_(a)),
+      a.verlopen === true ? el('span', { class: 'rij-sub deeln-naam' }, bewerkenWachtLabel('bewaartermijn verlopen')) : null));
   var detail = el('div', { id: detailId, class: 'deeln-uit' }, open ? wijkregisterDetail_(a) : null);
   if (!open) detail.hidden = true;
   return el('li', { class: 'deeln-rij' }, kop, detail);
@@ -314,10 +307,10 @@ function wijkregisterTekenLijst_() {
   var d = wijkregisterLading.data;
   if (!d || !Array.isArray(d.adressen)) { wijkregisterVak.lijst.replaceChildren(); wijkregisterVak.meer.replaceChildren(); return; }
   var zoek = wijkregisterKlein_(wijkregisterStaat.zoek).trim();
-  var rijen = d.adressen.filter(function (a) { return wijkregisterPastBijZoek_(a, zoek); }); // de server sorteert op straat en huisnummer
+  var rijen = d.adressen.filter(function (a) { return wijkregisterPastBijZoek_(a, zoek) && (!wijkregisterStaat.filterVerlopen || a.verlopen === true); }); // de server sorteert op straat en huisnummer
   var zichtbaar = rijen.slice(0, wijkregisterStaat.toon);
   if (rijen.length === 0) {
-    wijkregisterVak.lijst.replaceChildren(el('p', { class: 'rij-sub', style: 'margin-top:0.75rem' }, d.adressen.length === 0 ? 'Het wijkregister is nog leeg.' : 'Niets gevonden.'));
+    wijkregisterVak.lijst.replaceChildren(el('p', { class: 'rij-sub', style: 'margin-top:0.75rem' }, d.adressen.length === 0 ? 'Het wijkregister is nog leeg.' : (wijkregisterStaat.filterVerlopen && zoek === '' ? 'Geen adressen met een verlopen bewaartermijn.' : 'Niets gevonden.')));
   } else {
     wijkregisterVak.lijst.replaceChildren(el('ul', { class: 'kaart-lijst' }, zichtbaar.map(wijkregisterRij_)));
   }
@@ -331,7 +324,17 @@ function wijkregisterTekenLijst_() {
 function wijkregisterTekenMelding_() {
   if (!wijkregisterVak) return;
   var s = wijkregisterStaat;
-  wijkregisterVak.melding.replaceChildren(bewerkenFoutStroken(s.wacht, function (i) { s.wacht.fouten.splice(i, 1); wijkregisterTekenMelding_(); }));
+  var stroken = bewerkenFoutStroken(s.wacht, function (i) { s.wacht.fouten.splice(i, 1); wijkregisterTekenMelding_(); })
+    .concat(bewerkenInfoStroken(s.wacht, function (i) { s.wacht.infos.splice(i, 1); wijkregisterTekenMelding_(); }));
+  wijkregisterVak.melding.replaceChildren.apply(wijkregisterVak.melding, stroken);
+}
+
+// De chip 'Bewaartermijn verlopen' met, voor wie dat mag, de knop 'Verlopen gegevens wissen' (huishoudkaart.js).
+function wijkregisterTekenVerlopen_() {
+  if (!wijkregisterVak) return;
+  var d = wijkregisterLading.data;
+  if (!d || !Array.isArray(d.adressen)) { wijkregisterVak.verlopen.replaceChildren(); return; }
+  wijkregisterVak.verlopen.replaceChildren.apply(wijkregisterVak.verlopen, kaartVerlopenBalk());
 }
 
 function wijkregisterAlles_() {
@@ -342,6 +345,7 @@ function wijkregisterAlles_() {
   wijkregisterTekenStatus_();
   wijkregisterTekenMelding_();
   wijkregisterTekenAdres_();
+  wijkregisterTekenVerlopen_();
   wijkregisterTekenLijst_();
 }
 
@@ -373,18 +377,18 @@ function wijkregisterTeken_(container, staat) {
     oninput: function (e) { wijkregisterStaat.zoek = e.target.value; wijkregisterStaat.toon = WIJKREGISTER_PAGINA; wijkregisterTekenLijst_(); }
   });
   wijkregisterVak = { wortel: container, melding: el('div', { class: 'stroken bewerken-meldingen' }), adres: el('div', { class: 'wijk-adres' }),
-    status: el('div', { class: 'deeln-status' }), lijst: el('div', { class: 'deeln-lijst' }), meer: el('div', { class: 'kasboek-meer' }) };
+    status: el('div', { class: 'deeln-status' }), verlopen: el('div', { class: 'kas-chips' }), lijst: el('div', { class: 'deeln-lijst' }), meer: el('div', { class: 'kasboek-meer' }) };
   wijkregisterLading.bijWijziging = wijkregisterAlles_;
   var magBewerken = wijkregisterMagBewerken_();
   container.replaceChildren(
     el('header', { class: 'paginakop' }, el('div', null, el('h1', null, 'Wijkregister'),
-      el('p', null, 'De buren die we mogen bewaren, met de jaren dat ze meededen.' + (magBewerken ? ' Je kunt contacten corrigeren, toevoegen en verwijderen.' : ' Alleen kijken.')))),
+      el('p', null, 'De buren die we mogen bewaren: wie er woont, spullen om te lenen en de jaren dat ze meededen.' + (magBewerken ? ' Je kunt contacten, bewoners en spullen corrigeren, toevoegen en verwijderen.' : ' Alleen kijken.')))),
     el('p', { class: 'strook deeln-privacy' }, 'Gegevens van buren: niet delen buiten de commissie.'),
     wijkregisterVak.melding,
     wijkregisterVak.adres,
     el('section', { class: 'kaart', 'aria-label': 'Adressen' },
       el('label', { class: 'veld', for: 'wijk-zoek' }, 'Zoeken', zoekveld),
-      wijkregisterVak.status, wijkregisterVak.lijst, wijkregisterVak.meer));
+      wijkregisterVak.verlopen, wijkregisterVak.status, wijkregisterVak.lijst, wijkregisterVak.meer));
   wijkregisterVolg_(staat);
   wijkregisterAlles_();
   wijkregisterLading.haal(); // het scherm is geopend: altijd vers ophalen

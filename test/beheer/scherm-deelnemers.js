@@ -256,7 +256,7 @@ function deelnemersTekenChips_() {
 function deelnemersTekenMelding_() {
   if (!deelnemersVak) return;
   var s = deelnemersStaat;
-  deelnemersVak.melding.replaceChildren(bewerkenFoutStroken(s.wacht, function (i) { s.wacht.fouten.splice(i, 1); deelnemersTekenMelding_(); }));
+  deelnemersVak.melding.replaceChildren.apply(deelnemersVak.melding, bewerkenFoutStroken(s.wacht, function (i) { s.wacht.fouten.splice(i, 1); deelnemersTekenMelding_(); }));
 }
 
 function deelnemersAlles_() {
