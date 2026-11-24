@@ -54,8 +54,8 @@ function wijkregisterMailLink_(email) {
 }
 
 function wijkregisterTelLink_(telefoon) {
-  var t = String(telefoon || '').trim();
-  var nummer = t.replace(/[^\d+]/g, '');
+  var t = telefoonOpmaak(telefoon);
+  var nummer = telefoonCijfers(telefoon);
   return t === '' ? null : (nummer === '' ? el('span', null, t) : el('a', { href: 'tel:' + nummer }, t));
 }
 
@@ -103,7 +103,7 @@ function wijkregisterTekenAdres_() {
   }));
   var inhoud = [knop, wachtend];
   if (f) inhoud.push(wijkregisterAdresFormulier_(f));
-  vak.replaceChildren(el('section', { class: 'kaart', 'aria-label': 'Adres toevoegen' }, inhoud));
+  vak.replaceChildren(el('section', { class: 'kaart wijk-kaart wijk-adres-kaart', 'aria-label': 'Adres toevoegen' }, inhoud));
 }
 
 function wijkregisterAdresFormulier_(f) {
@@ -241,7 +241,7 @@ function wijkregisterTeken_(container, staat) {
     el('p', { class: 'strook deeln-privacy' }, 'Gegevens van buren: niet delen buiten de commissie.'),
     wijkregisterVak.melding,
     wijkregisterVak.adres,
-    el('section', { class: 'kaart', 'aria-label': 'Adressen' },
+    el('section', { class: 'kaart wijk-kaart', 'aria-label': 'Adressen' },
       el('label', { class: 'veld', for: 'wijk-zoek' }, 'Zoeken', zoekveld),
       wijkregisterVak.verlopen, wijkregisterVak.status, wijkregisterVak.lijst, wijkregisterVak.meer));
   wijkregisterVolg_(staat);

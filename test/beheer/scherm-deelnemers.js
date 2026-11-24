@@ -68,8 +68,8 @@ function deelnemersMailLink_(email) {
 }
 
 function deelnemersTelLink_(telefoon) {
-  var t = String(telefoon || '').trim();
-  var nummer = t.replace(/[^\d+]/g, '');
+  var t = telefoonOpmaak(telefoon);
+  var nummer = telefoonCijfers(telefoon);
   return t === '' ? null : (nummer === '' ? el('span', null, t) : el('a', { href: 'tel:' + nummer }, t));
 }
 
@@ -107,7 +107,7 @@ function deelnemersContactBlok_(h) {
   if (wacht.length > 0) contact.push(el('div', null, bewerkenWachtLabel('wordt verwerkt')));
   else if (mag) {
     contact.push(el('div', { class: 'knoppen bewerken-knoppen' }, el('button', { type: 'button', class: 'knop knop-klein', onclick: function () {
-      s.formulier = { adrescode: h.adrescode, oud: { email: h.email || '' }, voornaam: h.voornaam || '', achternaam: h.achternaam || '', email: h.email || '', telefoon: h.telefoon || '', fouten: [], focus: true };
+      s.formulier = { adrescode: h.adrescode, oud: { email: h.email || '' }, voornaam: h.voornaam || '', achternaam: h.achternaam || '', email: h.email || '', telefoon: telefoonOpmaak(h.telefoon), fouten: [], focus: true };
       deelnemersTekenLijst_();
     } }, 'Contact wijzigen')));
   }

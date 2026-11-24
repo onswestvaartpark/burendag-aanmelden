@@ -419,7 +419,6 @@ function bonBijwerken_(container, staat) {
 registreerScherm({
   naam: 'bon',
   titel: 'Bon indienen',
-  kortTitel: 'Bon',
   recht: 'bon_indienen',
   icoon: 'bon',
   teken: bonTeken_,

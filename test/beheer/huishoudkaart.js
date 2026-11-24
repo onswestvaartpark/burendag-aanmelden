@@ -90,7 +90,7 @@ function kaartTekst_(w) {
 // Het adres zoals de server het gaf, in de vorm die de opdracht als 'oud' meestuurt: alleen wat de commissie ziet (geen toestemmingen of tokens).
 function kaartOudVan(a) {
   return {
-    contacten: (a.contacten || []).map(function (c) { return { voornaam: kaartTekst_(c.voornaam), achternaam: kaartTekst_(c.achternaam), email: kaartTekst_(c.email), telefoon: kaartTekst_(c.telefoon) }; }),
+    contacten: (a.contacten || []).map(function (c) { return { voornaam: kaartTekst_(c.voornaam), achternaam: kaartTekst_(c.achternaam), email: kaartTekst_(c.email), telefoon: telefoonHerstel(c.telefoon) }; }),
     bewoners: (a.personen || []).map(kaartBewonerOud),
     spullen: (a.spullen || []).map(kaartSpulOud),
     opmerking: kaartTekst_(a.opmerking)
@@ -119,7 +119,7 @@ function kaartFormulierUitAdres(a) {
   var oud = kaartOudVan(a);
   return {
     adrescode: a.adrescode, oud: oud,
-    contacten: oud.contacten.map(function (c, i) { return Object.assign({ van: i }, c); }),
+    contacten: oud.contacten.map(function (c, i) { return Object.assign({ van: i }, c, { telefoon: telefoonOpmaak(c.telefoon) }); }), // het formulier toont het nummer opgemaakt; oud houdt de waarde van de server
     bewoners: (a.personen || []).map(function (p, i) {
       return { van: i, voornaam: kaartTekst_(p.voornaam), geboortemaand: p.geboortemaand === null || p.geboortemaand === undefined ? '' : String(p.geboortemaand),
         geboortejaar: p.geboortejaar === null || p.geboortejaar === undefined ? '' : String(p.geboortejaar), dieet: (p.dieet || []).slice(), dieetToelichting: kaartTekst_(p.dieetToelichting), ehbo: p.ehbo === true };

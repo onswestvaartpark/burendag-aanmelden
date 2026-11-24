@@ -3,7 +3,7 @@
 // (bij het aannemen van de opdracht en in de verwerker) en bij het opschonen.
 // Vereist gedeeld/validatie.js (valTekst_, valFout_). Alleen function/var op het hoogste niveau (draait in Apps Script, browser en Node).
 //
-// Bewaartermijn (besluit van de commissie): we bewaren gegevens hooguit 3 jaar na de laatste toestemming. De toestemming wordt gegeven bij de
+// Bewaartermijn (besluit van de commissie): we wissen gegevens pas na drie edities op rij zonder aanmelding. De toestemming wordt gegeven bij de
 // aanmelding en met elke nieuwe aanmelding vernieuwd. bewarenTot = (laatste jaar met deelname, anders het jaar waarin het adres is toegevoegd) + 3,
 // en geldt tot en met het einde van dat jaar. Is het jaar van toevoegen onbekend (lege toegevoegd_op), dan is de termijn onbekend en verloopt er niets.
 

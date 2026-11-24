@@ -5,14 +5,12 @@
 // teken bouwt het scherm; komen er nieuwe gegevens binnen, dan wordt bijwerken aangeroepen (of anders teken opnieuw).
 // staat = { momentopname, rechten, ik, email, parameters, offline, stuurOpdracht(type, gegevens), herlees() }.
 // Hulpmiddelen voor de schermen: el(), euro(), maakIcoon(), ICONEN. Tekst gaat nooit via innerHTML.
-// Vereist (in deze volgorde geladen): config.js, gedeeld/rechten.js, wachtrij.js, api.js.
+// Vereist (in deze volgorde geladen): config.js, gedeeld/rechten.js, wachtrij.js, api.js, menugroepen.js (de groepen van het menu).
 
 var LEES_INTERVAL_MS = 30000;       // wacht de pagina op het verwerken van een opdracht, dan zo vaak opnieuw lezen
 var LEES_MAX_MS = 600000;           // ... en daar na zo lang mee stoppen (10 minuten)
 var NOG_EEN_POGING_MS = 30000;      // blijft er iets in de wachtrij staan, dan na zo lang opnieuw proberen
 var VERVERS_NA_MS = 60000;          // terugkomen op de pagina na zo lang: opnieuw lezen
-// Op de telefoon is er per knop weinig plek: een eigen kortTitel van het scherm, of deze, of de gewone titel.
-var KORTE_TITELS = { geldbronnen: 'Bronnen' };
 var SCHERM_VOLGORDE = ['overzicht', 'deelnemers', 'wijkregister', 'kas', 'begroting', 'geldbronnen', 'bon', 'commissie'];
 
 // Pictogrammen: de binnenkant van een svg van 24 bij 24, lijntekening (zoals in de ontwerpen).
@@ -27,6 +25,8 @@ var ICONEN = {
   commissie: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>',
   uitloggen: '<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4M20 12H9"/>',
   vernieuwen: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/>',
+  instellingen: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
   leeg: '<circle cx="12" cy="12" r="9"/><path d="M8 14.5c1 1.2 2.4 1.8 4 1.8s3-.6 4-1.8M9 9.5h.01M15 9.5h.01"/>',
   wifi: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/>'
 };
@@ -434,26 +434,68 @@ function bouwSchil_() {
             el('button', { type: 'button', class: 'icoonknop', 'aria-label': 'Uitloggen', onclick: uitloggen_ }, maakIcoon('uitloggen')))),
         el('main', { class: 'hoofd', id: 'hoofd' },
           el('div', { class: 'hoofd-binnen' },
+            el('div', { id: 'subtabs-vak' }),
             el('div', { class: 'stroken', id: 'stroken', role: 'status', 'aria-live': 'polite' }),
             el('div', { id: 'scherm' })))),
-      el('nav', { class: 'onderbalk', id: 'menu-onder', 'aria-label': 'Hoofdmenu' })));
+      el('nav', { class: 'onderbalk', id: 'menu-onder', 'aria-label': 'Hoofdmenu' }),
+      el('a', { class: 'bon-knop', id: 'bon-knop', href: '#bon', 'aria-label': 'Bon indienen', title: 'Bon indienen', hidden: true }, maakIcoon('plus'))));
   tekenMenu_();
+  if (window.MutationObserver) new MutationObserver(bonKnopSync_).observe(document.getElementById('scherm'), { childList: true, subtree: true });
   tekenStroken_();
 }
 
-function menuPunt_(scherm, huidig, kort) {
-  var titel = scherm.titel || scherm.naam;
-  return el('a', { class: 'menu-punt', href: '#' + scherm.naam, 'aria-current': scherm.naam === huidig ? 'page' : null, 'aria-label': kort ? titel : null },
-    maakIcoon(scherm.icoon || scherm.naam), el('span', null, kort ? (scherm.kortTitel || KORTE_TITELS[scherm.naam] || titel) : titel));
+// Een punt van het zijmenu (computer): pictogram en naam van een scherm.
+function menuPunt_(scherm, huidig) {
+  return el('a', { class: 'menu-punt', href: '#' + scherm.naam, 'aria-current': scherm.naam === huidig ? 'page' : null },
+    maakIcoon(scherm.icoon || scherm.naam), el('span', null, menuLabel(scherm)));
+}
+
+// Een punt van de balk onderaan (telefoon): alleen het pictogram van de groep; naam in aria-label en title.
+// telling = het getal op dit pictogram (of null); het getal staat in de aria-label, het bolletje zelf is voor schermlezers verborgen.
+function menuGroepPunt_(groep, huidig, telling) {
+  var actief = groep.schermen.some(function (s) { return s.naam === huidig; });
+  var doel = actief ? huidig : groep.doel;
+  var naam = menuBadgeNaam(groep.titel, telling);
+  return el('a', { class: 'menu-punt', href: '#' + doel, 'aria-current': actief ? 'page' : null, 'aria-label': naam, title: naam },
+    maakIcoon(groep.icoon), telling ? el('span', { class: 'menu-badge', 'aria-hidden': 'true' }, telling > 99 ? '99+' : String(telling)) : null);
+}
+
+// De ronde +-knop rechtsonder voor 'Bon indienen' (komt in plaats van een plek in de balk).
+function bonKnopSync_() {
+  var knop = document.getElementById('bon-knop');
+  if (!knop) return;
+  var vak = document.getElementById('scherm');
+  var open = !!(vak && vak.querySelector('.bewerken-formulier, .opslaanbalk, '));
+  var namen = toegestaneSchermen_().map(function (s) { return s.naam; });
+  knop.hidden = !menuBonKnopZichtbaar(namen, beheerApp.huidig, open);
+}
+
+// De tabs bovenaan het scherm (telefoon) als de groep van het huidige scherm er meer dan een heeft; anders niets.
+function menuTabs_(groepen, huidig) {
+  var groep = menuGroepVan(groepen, huidig);
+  if (!groep || !groep.tabs) return null;
+  return el('nav', { class: 'subtabs', 'aria-label': groep.titel },
+    groep.schermen.map(function (s) {
+      return el('a', { class: 'subtab', href: '#' + s.naam, 'aria-current': s.naam === huidig ? 'page' : null }, menuLabel(s));
+    }));
 }
 
 function tekenMenu_() {
-  var zij = document.getElementById('menu-zij'), onder = document.getElementById('menu-onder');
+  var zij = document.getElementById('menu-zij'), onder = document.getElementById('menu-onder'), tabs = document.getElementById('subtabs-vak');
   if (!zij || !onder) return;
   var lijst = toegestaneSchermen_();
-  zij.replaceChildren.apply(zij, lijst.map(function (s) { return menuPunt_(s, beheerApp.huidig); }));
-  onder.replaceChildren.apply(onder, lijst.map(function (s) { return menuPunt_(s, beheerApp.huidig, true); }));
+  var groepen = menuGroepenVoor(lijst);
+  var zijDelen = [];
+  groepen.forEach(function (g) {
+    if (g.kop) zijDelen.push(el('div', { class: 'menu-kop' }, g.titel));
+    g.schermen.forEach(function (s) { zijDelen.push(menuPunt_(s, beheerApp.huidig)); });
+  });
+  zij.replaceChildren.apply(zij, zijDelen);
+  var telling = menuTelling(beheerApp.momentopname, rechtenNu_());
+  onder.replaceChildren.apply(onder, menuBalkGroepen(groepen).map(function (g) { return menuGroepPunt_(g, beheerApp.huidig, telling[g.naam] || null); }));
   onder.hidden = lijst.length === 0;
+  if (tabs) tabs.replaceChildren.apply(tabs, [menuTabs_(groepen, beheerApp.huidig)].filter(function (k) { return k !== null; }));
+  bonKnopSync_();
 }
 
 // De router: #naam; een onbekend of verboden scherm wordt het eerste toegestane scherm.
