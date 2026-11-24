@@ -42,7 +42,7 @@ function geenVerbinding() {
 // Meldingen bij een foutcode van het script.
 const CODE_TEKSTEN = {
   NOG_NIET_OPEN: ['Aanmelden kan nog niet', 'De aanmelding is nog niet geopend.'],
-  GESLOTEN: ['Aanmelden is gesloten', 'De aanmelding is gesloten. Wil je toch nog mee? Neem contact op met de commissie.'],
+  GESLOTEN: ['Aanmelden is gesloten', 'De aanmelding is gesloten: aanmelden, wijzigen en afmelden kan niet meer via de site. Wil je toch iets doorgeven? Neem contact op met de commissie.'],
   NA_OPGAVE: ['Wijzigen kan niet meer via de site', 'De aantallen zijn al doorgegeven aan de cateraar. Wil je nog iets veranderen of afmelden? Mail de commissie.'],
   TE_VEEL: ['Te veel aanmeldingen op dit adres', 'Op dit adres staan al het maximale aantal huishoudens. Klopt dat niet? Mail de commissie.'],
   ONBEKEND_TOKEN: ['Deze link kennen we niet', 'De link is onbekend of verlopen. Je kunt hieronder gewoon opnieuw aanmelden.'],

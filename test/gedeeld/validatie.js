@@ -85,6 +85,18 @@ function valAdres_(fouten, adres, instellingen) {
   return schoon;
 }
 
+// Een geldig e-mailadres (getrimd en met kleine letters aangeleverd) van hooguit 100 tekens.
+function valIsEmail_(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 100;
+}
+
+// Een plausibel telefoonnummer: alleen cijfers, spaties en + ( ) - . /, met 6 tot 15 cijfers.
+function valIsTelefoon_(telefoon) {
+  if (!/^[+()\d\s.\/-]+$/.test(telefoon)) return false;
+  var cijfers = telefoon.replace(/\D/g, '').length;
+  return cijfers >= 6 && cijfers <= 15;
+}
+
 function valContact_(fouten, contact) {
   var c = valIsObject_(contact) ? contact : {};
   var schoon = {
@@ -94,7 +106,7 @@ function valContact_(fouten, contact) {
     telefoon: valTekstveld_(fouten, 'contact.telefoon', c.telefoon, false, 100, 'het telefoonnummer')
   };
   var email = valTekst_(c.email).toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 100) {
+  if (!valIsEmail_(email)) {
     valFout_(fouten, 'contact.email', 'Vul een geldig e-mailadres in.');
   } else {
     schoon.email = email;

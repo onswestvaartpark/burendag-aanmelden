@@ -213,7 +213,7 @@ function leesVelden(token, tweedeHuishouden) {
     personen,
     hulp: aangevinkt($('hulp')),
     spullen,
-    bewaren: $('bewaren').checked, dieetBewaren: $('dieetBewaren').checked, activiteiten: $('activiteiten').checked,
+    bewaren: $('bewaren').checked, activiteiten: $('activiteiten').checked,
     website: waarde('website'),
     token: token || '',
     tweedeHuishouden: tweedeHuishouden === true
@@ -241,7 +241,6 @@ function vulVelden(velden, inst) {
   verdeeld.anders.forEach((s) => spullen.appendChild(andersRij(s.wat, s.aantal)));
   spullen.appendChild(andersRij('', ''));
   $('bewaren').checked = velden.bewaren;
-  $('dieetBewaren').checked = velden.dieetBewaren;
   $('activiteiten').checked = velden.activiteiten;
 }
 

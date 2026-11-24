@@ -22,7 +22,7 @@ function verzoekAdres_(v) {
 
 // velden = { straat, straatElders (alleen bij Elders), huisnummer, voornaam, achternaam, email, telefoon, rekeninghouder,
 //   personen: [{ voornaam, kind, maand, jaar, dieet, toelichting, eetMee, ehbo }], hulp, spullen,
-//   bewaren, dieetBewaren, activiteiten, website, token, tweedeHuishouden }
+//   bewaren, activiteiten, website, token, tweedeHuishouden }
 function verzoekUitFormulier(velden) {
   var v = velden || {};
   var personen = [];
@@ -51,7 +51,7 @@ function verzoekUitFormulier(velden) {
     hulp: (v.hulp || []).slice(),
     spullen: (v.spullen || []).slice(),
     rekeninghouder: verzoekTekst_(v.rekeninghouder),
-    toestemming: { bewaren: v.bewaren === true, dieet: v.dieetBewaren === true, activiteiten: v.activiteiten === true },
+    toestemming: { bewaren: v.bewaren === true, dieet: v.bewaren === true, activiteiten: v.activiteiten === true },
     website: verzoekTekst_(v.website)
   };
   if (v.token) verzoek.token = v.token;
@@ -78,7 +78,7 @@ function veldenUitAanmelding(aanmelding, token) {
     email: verzoekTekst_(h.email), telefoon: verzoekTekst_(h.telefoon), rekeninghouder: '',
     personen: personen,
     hulp: (aanmelding.hulp || []).slice(), spullen: (aanmelding.spullen || []).slice(),
-    bewaren: h.toestemmingBewaren === true, dieetBewaren: h.toestemmingDieet === true,
+    bewaren: h.toestemmingBewaren === true,
     activiteiten: h.toestemmingActiviteiten === true, website: '', token: token
   };
 }
