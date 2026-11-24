@@ -132,7 +132,7 @@ function wijkregisterTekenLijst_() {
   wijkregisterVak.meer.replaceChildren(rijen.length > zichtbaar.length
     ? el('button', { type: 'button', class: 'knop', onclick: function () { wijkregisterStaat.toon += WIJKREGISTER_PAGINA; wijkregisterTekenLijst_(); } },
         'Toon meer (' + (rijen.length - zichtbaar.length) + ' te gaan)')
-    : null);
+    : '');
 }
 
 function wijkregisterAlles_() {

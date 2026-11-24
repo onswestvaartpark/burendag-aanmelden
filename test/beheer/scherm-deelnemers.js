@@ -173,7 +173,7 @@ function deelnemersTekenLijst_() {
   deelnemersVak.meer.replaceChildren(rijen.length > zichtbaar.length
     ? el('button', { type: 'button', class: 'knop', onclick: function () { deelnemersStaat.toon += DEELNEMERS_PAGINA; deelnemersTekenLijst_(); } },
         'Toon meer (' + (rijen.length - zichtbaar.length) + ' te gaan)')
-    : null);
+    : '');
 }
 
 function deelnemersTekenChips_() {
