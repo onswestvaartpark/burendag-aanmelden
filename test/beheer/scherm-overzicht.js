@@ -34,7 +34,8 @@ var OVERZICHT_ACTIES = {
   'registerAdresOpslaan': 'Adres gewijzigd',
   'registerAdresToevoegen': 'Adres toegevoegd',
   'deelnemerContactOpslaan': 'Deelnemer gewijzigd',
-  'registerOpschonen': 'Verlopen gegevens gewist'
+  'registerOpschonen': 'Verlopen gegevens gewist',
+  'uitnodigingenVersturen': 'Uitnodigingen verstuurd'
 };
 
 var OVERZICHT_OPDRACHT_TYPEN = {
@@ -46,7 +47,8 @@ var OVERZICHT_OPDRACHT_TYPEN = {
   registerAdresOpslaan: 'Adres gewijzigd',
   registerAdresToevoegen: 'Adres toegevoegd',
   deelnemerContactOpslaan: 'Deelnemer gewijzigd',
-  registerOpschonen: 'Verlopen gegevens gewist'
+  registerOpschonen: 'Verlopen gegevens gewist',
+  uitnodigingenVersturen: 'Uitnodigingen versturen'
 };
 
 // Per soort te doen: pictogram (svg-binnenwerk) en knoptekst; andere soorten krijgen de standaard.
