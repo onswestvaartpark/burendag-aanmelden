@@ -146,3 +146,48 @@ function samenvoegMetMomentopname(momentopname, wachtrij, verstuurd) {
   uit.mijnOpdrachten = nieuw.concat(lijst);
   return uit;
 }
+
+// ---- opdrachten met gegevens van buren (fase 2b): nooit naar localStorage ----
+
+// Deze opdrachttypen bevatten namen, e-mailadressen of telefoonnummers van buren. Ze staan in de wachtrij, bij 'verstuurd' en bij 'mislukt'
+// alleen in het geheugen van de pagina: sluit je de pagina voordat ze verstuurd zijn, dan gaan ze verloren (en dat is hier bedoeld).
+var PRIVE_OPDRACHT_TYPEN = ['registerAdresOpslaan', 'registerAdresToevoegen', 'deelnemerContactOpslaan', 'registerOpschonen'];
+
+function isPriveOpdracht(opdracht) {
+  return !!opdracht && PRIVE_OPDRACHT_TYPEN.indexOf(opdracht.type) !== -1;
+}
+
+// Een opslag in het geheugen in dezelfde vorm als de opslag in api.js: { lees(sleutel), schrijf(sleutel, waarde), wis(sleutel) }. Waarden zijn JSON.
+function maakGeheugenOpslag() {
+  var data = {};
+  return {
+    lees: function (naam) { return Object.prototype.hasOwnProperty.call(data, naam) ? JSON.parse(data[naam]) : null; },
+    schrijf: function (naam, waarde) { data[naam] = JSON.stringify(waarde); return true; },
+    wis: function (naam) { delete data[naam]; }
+  };
+}
+
+// Een opslag die de lijsten 'wachtrij', 'verstuurd' en 'mislukt' splitst: opdrachten met gegevens van buren gaan naar het geheugen,
+// de rest naar de vaste opslag (localStorage). Bij het lezen komen ze weer samen (eerst de vaste, dan die uit het geheugen). Andere sleutels gaan naar de vaste opslag.
+function maakGesplitsteOpslag(vast, geheugen) {
+  var lijsten = { wachtrij: true, verstuurd: true, mislukt: true };
+  function opdrachtVan(naam, item) { return naam === 'wachtrij' ? item : (item && item.opdracht); }
+  function lijst(opslag, naam) { var l = opslag.lees(naam); return Array.isArray(l) ? l : []; }
+  return {
+    lees: function (naam) {
+      if (!lijsten[naam]) return vast.lees(naam);
+      var a = vast.lees(naam);
+      var b = lijst(geheugen, naam);
+      return a === null && b.length === 0 ? null : lijst(vast, naam).concat(b);
+    },
+    schrijf: function (naam, waarde) {
+      if (!lijsten[naam] || !Array.isArray(waarde)) return vast.schrijf(naam, waarde);
+      geheugen.schrijf(naam, waarde.filter(function (i) { return isPriveOpdracht(opdrachtVan(naam, i)); }));
+      return vast.schrijf(naam, waarde.filter(function (i) { return !isPriveOpdracht(opdrachtVan(naam, i)); }));
+    },
+    wis: function (naam) {
+      if (lijsten[naam]) geheugen.wis(naam);
+      if (typeof vast.wis === 'function') vast.wis(naam);
+    }
+  };
+}

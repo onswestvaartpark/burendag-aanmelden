@@ -1,7 +1,8 @@
-// De aanmeldpagina: config laden, eventueel het eigen huishouden (?t=token), versturen en de antwoorden tonen.
+// De aanmeldpagina: config laden, eventueel het eigen huishouden (?t=token) of de gegevens bij een uitnodigingslink (?uitnodiging=token), versturen en de antwoorden tonen.
 // Vereist: config.js, gedeeld/*.js, verzoek.js, api.js, formulier.js.
 
-const CONTACT_STANDAARD = 'onswestvaartpark@gmail.com';
+// Het uitnodigingstoken (fase 2d) staat alleen in een lokale variabele van laadUitnodiging: nooit in de adresbalk (na het antwoord), in browseropslag of in een verzoek.
+// uitnodiging = het uitnodigingstoken uit de link (fase 2d); alleen in het geheugen, nooit in de adresbalk, in browseropslag of in een verzoek.
 const staat = { config: null, inst: null, token: '', tweedeHuishouden: false, bezig: false };
 
 function contactAdres() {
@@ -42,7 +43,7 @@ function geenVerbinding() {
 // Meldingen bij een foutcode van het script.
 const CODE_TEKSTEN = {
   NOG_NIET_OPEN: ['Aanmelden kan nog niet', 'De aanmelding is nog niet geopend.'],
-  GESLOTEN: ['Aanmelden is gesloten', 'De aanmelding is gesloten. Wil je toch nog mee? Neem contact op met de commissie.'],
+  GESLOTEN: ['Aanmelden is gesloten', 'De aanmelding is gesloten: aanmelden, wijzigen en afmelden kan niet meer via de site. Wil je toch iets doorgeven? Neem contact op met de commissie.'],
   NA_OPGAVE: ['Wijzigen kan niet meer via de site', 'De aantallen zijn al doorgegeven aan de cateraar. Wil je nog iets veranderen of afmelden? Mail de commissie.'],
   TE_VEEL: ['Te veel aanmeldingen op dit adres', 'Op dit adres staan al het maximale aantal huishoudens. Klopt dat niet? Mail de commissie.'],
   ONBEKEND_TOKEN: ['Deze link kennen we niet', 'De link is onbekend of verlopen. Je kunt hieronder gewoon opnieuw aanmelden.'],
@@ -59,8 +60,61 @@ function toonCode(antwoord) {
 
 // ---- opstarten ----
 
+// Haalt de parameter uitnodiging uit de adresbalk, zodat het token niet in de geschiedenis, een bladwijzer of een gedeelde link blijft staan.
+function verwijderUitnodigingUitAdres() {
+  history.replaceState(null, '', adresZonderUitnodiging(location.pathname, location.search, location.hash));
+}
+
+// Fase 2d: de uitnodigingslink. Vraagt de gegevens op en vult het formulier (zonder het vinkje 'bewaren': dat zet de buur zelf opnieuw).
+// Geeft true als de pagina klaar is (formulier of melding getoond); false als de gewone start verder moet (de aanmeldperiode is niet open).
+async function laadUitnodiging(uitnodiging) {
+  let antwoord;
+  // het ophalen kan even duren: laat de buur zien dat er iets gebeurt (het formulier blijft zolang verborgen)
+  const laden = $('laden');
+  const laadTekst = laden.textContent;
+  const laadWasVerborgen = laden.hidden;
+  laden.textContent = 'Je gegevens worden opgehaald…';
+  laden.hidden = false;
+  try {
+    antwoord = await haalUitnodiging(uitnodiging);
+  } catch (e) {
+    antwoord = null;
+  }
+  // de oorspronkelijke tekst en zichtbaarheid terug, ook als we terugvallen op de gewone start
+  laden.textContent = laadTekst;
+  laden.hidden = laadWasVerborgen;
+  const code = antwoord && antwoord.code;
+  const definitief = !!antwoord && (antwoord.ok === true || ['UITNODIGING_ONGELDIG', 'UITNODIGING_AL_AANGEMELD', 'NOG_NIET_OPEN', 'GESLOTEN'].indexOf(code) !== -1);
+  if (!definitief) {
+    // geen verbinding of een fout van de server: het token blijft in de adresbalk, zodat opnieuw laden het nog eens probeert
+    toonMelding('Gegevens niet opgehaald', ['We konden je gegevens nu niet ophalen. Laad de pagina over een minuut opnieuw.'], false);
+    toonLeegFormulier(false);
+    return true;
+  }
+  verwijderUitnodigingUitAdres();
+  if (antwoord.ok === true) {
+    vulVelden(veldenUitUitnodiging(antwoord), staat.inst);
+    $('formulier').hidden = false;
+    toonBedrag(staat.inst);
+    toonMelding('Je gegevens staan klaar', ['We hebben je gegevens van vorig jaar alvast ingevuld. Kijk ze even na.'], false, 'goed');
+    return true;
+  }
+  if (code === 'UITNODIGING_AL_AANGEMELD') {
+    toonMelding('Dit adres is al aangemeld', [typeof antwoord.melding === 'string' ? antwoord.melding : 'Dit adres is al aangemeld. Gebruik de wijziglink uit je bevestigingsmail.'], true);
+    return true;
+  }
+  if (code === 'NOG_NIET_OPEN' || code === 'GESLOTEN') { toonCode(antwoord); return true; }
+  const melding = typeof antwoord.melding === 'string' ? antwoord.melding
+    : 'Deze uitnodigingslink is niet (meer) geldig. Je kunt je gewoon aanmelden via het formulier.';
+  toonMelding('Uitnodigingslink', [melding], false);
+  toonLeegFormulier(false);
+  return true;
+}
+
 async function start() {
-  const token = new URLSearchParams(location.search).get('t') || '';
+  const params = new URLSearchParams(location.search);
+  const token = params.get('t') || '';
+  const uitnodiging = params.get('uitnodiging') || '';
   let config;
   try {
     if (typeof API_URL !== 'string' || !API_URL) throw new Error('API_URL ontbreekt in config.js');
@@ -79,6 +133,7 @@ async function start() {
   bouwFormulier(config, staat.inst);
   koppelKnoppen();
 
+  if (token && uitnodiging) verwijderUitnodigingUitAdres(); // een eigen wijziglink gaat voor; het uitnodigingstoken hoeft niet in de adresbalk te blijven
   if (token) {
     let antwoord;
     try {
@@ -95,6 +150,12 @@ async function start() {
       toonLeegFormulier(false);
       return;
     }
+  }
+
+  if (uitnodiging) {
+    // een eigen wijziglink (?t=) gaat voor; buiten de aanmeldperiode is er niets in te vullen
+    if (token || config.status !== 'open') verwijderUitnodigingUitAdres();
+    else if (await laadUitnodiging(uitnodiging)) return;
   }
 
   if (config.status === 'nog_niet_open') {

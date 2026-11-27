@@ -21,6 +21,7 @@ var OVERZICHT_ACTIES = {
   'betaalstand bijwerken': 'Betaalstand bijgewerkt',
   'bestand opslaan': 'Bestand opgeslagen',
   'register': 'Wijkregister bijgewerkt',
+  'beheerWijkregister': 'Wijkregister bekeken',
   'instellingen': 'Instellingen aangepast',
   'fout': 'Er ging iets mis',
   'koppeling ongedaan': 'Koppeling ongedaan gemaakt',
@@ -29,7 +30,12 @@ var OVERZICHT_ACTIES = {
   'bank inlezen': 'Bankafschrift ingelezen',
   'beheerInloggen': 'Ingelogd op de beheerpagina',
   'beheerLedenOpslaan': 'Commissieleden aangepast',
-  'beheerRollenOpslaan': 'Rollen aangepast'
+  'beheerRollenOpslaan': 'Rollen aangepast',
+  'registerAdresOpslaan': 'Adres gewijzigd',
+  'registerAdresToevoegen': 'Adres toegevoegd',
+  'deelnemerContactOpslaan': 'Deelnemer gewijzigd',
+  'registerOpschonen': 'Verlopen gegevens gewist',
+  'uitnodigingenVersturen': 'Uitnodigingen verstuurd'
 };
 
 var OVERZICHT_OPDRACHT_TYPEN = {
@@ -37,7 +43,12 @@ var OVERZICHT_OPDRACHT_TYPEN = {
   begrotingPostOpslaan: 'Begrotingspost',
   begrotingPostVerwijderen: 'Begrotingspost verwijderd',
   geldbronOpslaan: 'Geldbron',
-  geldbronVerwijderen: 'Geldbron verwijderd'
+  geldbronVerwijderen: 'Geldbron verwijderd',
+  registerAdresOpslaan: 'Adres gewijzigd',
+  registerAdresToevoegen: 'Adres toegevoegd',
+  deelnemerContactOpslaan: 'Deelnemer gewijzigd',
+  registerOpschonen: 'Verlopen gegevens gewist',
+  uitnodigingenVersturen: 'Uitnodigingen versturen'
 };
 
 // Per soort te doen: pictogram (svg-binnenwerk) en knoptekst; andere soorten krijgen de standaard.

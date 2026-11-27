@@ -22,7 +22,7 @@ function verzoekAdres_(v) {
 
 // velden = { straat, straatElders (alleen bij Elders), huisnummer, voornaam, achternaam, email, telefoon, rekeninghouder,
 //   personen: [{ voornaam, kind, maand, jaar, dieet, toelichting, eetMee, ehbo }], hulp, spullen,
-//   bewaren, dieetBewaren, activiteiten, website, token, tweedeHuishouden }
+//   bewaren, activiteiten, website, token, tweedeHuishouden }
 function verzoekUitFormulier(velden) {
   var v = velden || {};
   var personen = [];
@@ -51,7 +51,7 @@ function verzoekUitFormulier(velden) {
     hulp: (v.hulp || []).slice(),
     spullen: (v.spullen || []).slice(),
     rekeninghouder: verzoekTekst_(v.rekeninghouder),
-    toestemming: { bewaren: v.bewaren === true, dieet: v.dieetBewaren === true, activiteiten: v.activiteiten === true },
+    toestemming: { bewaren: v.bewaren === true, dieet: v.bewaren === true, activiteiten: v.activiteiten === true },
     website: verzoekTekst_(v.website)
   };
   if (v.token) verzoek.token = v.token;
@@ -78,9 +78,39 @@ function veldenUitAanmelding(aanmelding, token) {
     email: verzoekTekst_(h.email), telefoon: verzoekTekst_(h.telefoon), rekeninghouder: '',
     personen: personen,
     hulp: (aanmelding.hulp || []).slice(), spullen: (aanmelding.spullen || []).slice(),
-    bewaren: h.toestemmingBewaren === true, dieetBewaren: h.toestemmingDieet === true,
+    bewaren: h.toestemmingBewaren === true,
     activiteiten: h.toestemmingActiviteiten === true, website: '', token: token
   };
+}
+
+// Fase 2d: het antwoord van uitnodigingLezen ({ adres, contact, bewoners, spullen }) als formuliervelden, met dezelfde vulling als een aanmelding (veldenUitAanmelding).
+// Zonder token (het wordt een gewone aanmelding), met de hulpblokken (codes) van het register, en met beide toestemmingen uit: de buur vinkt 'bewaren' zelf opnieuw aan; dat is de vernieuwing van de toestemming.
+function veldenUitUitnodiging(antwoord) {
+  var a = antwoord.adres || {};
+  var c = antwoord.contact || {};
+  var aanmelding = {
+    huishouden: {
+      straat: a.straat, straatElders: a.straatElders, huisnummer: a.huisnummer, toevoeging: a.toevoeging,
+      voornaam: c.voornaam, achternaam: c.achternaam, email: c.email, telefoon: c.telefoon,
+      toestemmingBewaren: false, toestemmingActiviteiten: false
+    },
+    personen: (antwoord.bewoners || []).map(function (b) {
+      var dieet = (b.dieet || []).slice();
+      return {
+        voornaam: b.voornaam, geboortemaand: b.geboortemaand, geboortejaar: b.geboortejaar,
+        dieet: dieet, dieetToelichting: b.dieetToelichting, eetMee: dieet.indexOf('-') === -1, ehbo: b.ehbo === true
+      };
+    }),
+    hulp: (antwoord.hulp || []).slice(),
+    spullen: (antwoord.spullen || []).map(function (s) { return { wat: s.wat, aantal: s.aantal, opmerking: s.opmerking || '' }; })
+  };
+  return veldenUitAanmelding(aanmelding, '');
+}
+
+// De url zonder de parameter uitnodiging (andere parameters blijven): pad is location.pathname, zoek is location.search, hash is location.hash.
+function adresZonderUitnodiging(pad, zoek, hash) {
+  var delen = String(zoek || '').replace(/^\?/, '').split('&').filter(function (d) { return d !== '' && d.split('=')[0] !== 'uitnodiging'; });
+  return pad + (delen.length > 0 ? '?' + delen.join('&') : '') + (hash || '');
 }
 
 // De publieke config (GET ?actie=config) in de vorm die valideerVerzoek en berekenBedrag verwachten.
