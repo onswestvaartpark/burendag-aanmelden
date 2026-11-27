@@ -7,7 +7,7 @@
 var MENU_GROEPEN = [
   { naam: 'home', titel: 'Home', icoon: 'huis', kop: false, schermen: ['overzicht'] },
   { naam: 'mensen', titel: 'Mensen', icoon: 'deelnemers', kop: true, schermen: ['deelnemers', 'wijkregister'] },
-  { naam: 'financieel', titel: 'Financieel', icoon: 'kas', kop: true, schermen: ['kas', 'begroting', 'geldbronnen'] },
+  { naam: 'financieel', titel: 'Financieel', icoon: 'kas', kop: true, schermen: ['betalingen', 'kas', 'begroting', 'geldbronnen'] },
   { naam: 'bon', titel: 'Bon indienen', icoon: 'bon', kop: false, balk: false, schermen: ['bon'] },
   { naam: 'instellingen', titel: 'Instellingen', icoon: 'instellingen', kop: true, schermen: ['commissie'] }
 ];
@@ -76,6 +76,19 @@ function menuTelling(momentopname, rechten) {
     var bonnen = m.kas.kasboek.filter(function (r) { return r && r.bron === 'bon' && r.status === 'terug te betalen'; }).length;
     if (bonnen > 0) uit.financieel = bonnen;
   }
+  return uit;
+}
+
+// Het getal op een menupunt van een scherm (zijmenu en tabs): nu alleen Betalingen, het aantal bankregels dat op een handmatige koppeling wacht (de punten
+// 'toeTeWijzen' uit de lijst teDoen van de momentopname), en alleen voor wie betalingen_koppelen heeft. { betalingen: getal groter dan 0 of null }.
+function menuSchermTelling(momentopname, rechten) {
+  var uit = { betalingen: null };
+  var m = momentopname && typeof momentopname === 'object' ? momentopname : null;
+  if (m === null || !Array.isArray(rechten) || rechten.indexOf('betalingen_koppelen') === -1) return uit;
+  var lijst = m.overzicht && Array.isArray(m.overzicht.teDoen) ? m.overzicht.teDoen : [];
+  var n = 0;
+  lijst.forEach(function (t) { if (t && t.soort === 'toeTeWijzen' && typeof t.aantal === 'number' && isFinite(t.aantal) && t.aantal > 0) n += Math.floor(t.aantal); });
+  if (n > 0) uit.betalingen = n;
   return uit;
 }
 

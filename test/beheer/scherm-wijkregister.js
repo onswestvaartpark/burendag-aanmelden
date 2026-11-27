@@ -281,6 +281,10 @@ function wijkregisterTeken_(container, staat) {
   var email = staat.email || '';
   if (wijkregisterStaat.email !== email) { wijkregisterVergeet(); wijkregisterStaat.email = email; }
   wijkregisterApp = staat;
+  // Vanuit Betalingen: #wijkregister?adres=<adrescode>&zoek=<adres> zoekt het adres op en klapt het open (alleen bij het openen van het scherm).
+  var gevraagd = staat.parameters && typeof staat.parameters.get === 'function' ? staat.parameters : null;
+  if (gevraagd && gevraagd.get('zoek')) { wijkregisterStaat.zoek = String(gevraagd.get('zoek')).slice(0, 80); wijkregisterStaat.toon = WIJKREGISTER_PAGINA; }
+  if (gevraagd && gevraagd.get('adres')) wijkregisterStaat.open[String(gevraagd.get('adres')).slice(0, 40)] = true;
   var zoekveld = el('input', {
     type: 'search', id: 'wijk-zoek', class: 'deeln-zoek', autocomplete: 'off', value: wijkregisterStaat.zoek,
     placeholder: 'Zoek op straat, huisnummer, naam of e-mail',

@@ -654,3 +654,59 @@ button.gb-kaart-knop:focus-visible { outline: 3px solid var(--geel); outline-off
 }
 
 @media (max-width: 40rem) { .bovenbalk .bijgewerkt-boven { display: none; } }
+
+/* ---- scherm Betalingen (fase 3) ---- */
+.menu-getal {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px;
+  background: var(--fout); color: var(--wit); font-size: 0.75rem; font-weight: 900; line-height: 20px; text-align: center;
+}
+.subtab .menu-getal { margin-left: 0.375rem; flex: 0 0 auto; }
+.bet-bestand { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.bet-drop {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1rem; margin-top: 0.5rem;
+  border: 2px dashed var(--rand); border-radius: var(--rond); background: var(--papier);
+}
+.bet-drop-actief { border-color: var(--groen-donker); background: var(--groen-zacht); }
+.bet-drop-tekst { margin: 0; overflow-wrap: anywhere; }
+.bet-telling { margin: 0.75rem 0 0; font-weight: 800; }
+.bet-laatste { margin: 0.25rem 0 0; }
+.bet-lijst { margin-top: 0.5rem; }
+.bet-regel { padding: 0.75rem 0; display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.bet-regelkop { display: flex; align-items: baseline; gap: 0.625rem; min-width: 0; }
+.bet-datum { flex: 0 0 3.25rem; font-size: 0.875rem; font-weight: 700; color: var(--grijs); white-space: nowrap; }
+.bet-naam { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.bet-bedrag { flex: 0 0 auto; font-weight: 800; white-space: nowrap; }
+.bet-omschrijving { overflow-wrap: anywhere; }
+.bet-voorstel { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+.bet-koppel { max-width: 100%; text-align: left; white-space: normal; }
+.bet-knoppen { margin-top: 0.25rem; }
+.bet-knoppen .knop, .bet-koppel, .bet-drop .knop { min-height: 44px; }
+.bet-ander { display: flex; flex-direction: column; gap: 0.5rem; align-items: stretch; }
+.bet-zoek-ander { width: 100%; min-height: 44px; box-sizing: border-box; font: inherit; padding: 0 0.75rem; border: 1.5px solid var(--rand); border-radius: var(--rond-klein); }
+.bet-keuzes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.bet-keuze {
+  width: 100%; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 0.375rem 0.75rem; text-align: left;
+  font: inherit; color: inherit; background: var(--wit); border: 1.5px solid var(--rand); border-radius: var(--rond-klein); cursor: pointer; overflow-wrap: anywhere;
+}
+.bet-keuze:hover { background: var(--groen-zacht); }
+.bet-keuze:focus-visible, .bet-kaartlink:focus-visible { outline: 3px solid var(--geel); outline-offset: 2px; box-shadow: 0 0 0 5px var(--groen-diep); }
+.bet-tabelvak { margin-top: 0.5rem; overflow-x: auto; }
+.bet-tabel { width: 100%; border-collapse: collapse; }
+.bet-tabel th { text-align: left; font-size: 0.8125rem; font-weight: 800; color: var(--grijs); padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--lijn); }
+.bet-tabel td { padding: 0.5rem; border-top: 1px solid var(--lijn); vertical-align: middle; overflow-wrap: anywhere; }
+.bet-tabel th.bet-getal, .bet-tabel td.bet-getal { text-align: right; white-space: nowrap; }
+.bet-klik { cursor: pointer; }
+.bet-klik:hover { background: var(--groen-zacht); }
+.bet-kaartlink { display: inline-flex; align-items: center; min-height: 44px; font-weight: 800; color: var(--groen-donker); }
+@media (max-width: 40rem) {
+  .bet-tabelvak { overflow-x: visible; }
+  .bet-tabel, .bet-tabel tbody { display: block; }
+  .bet-tabel thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .bet-tabel tr { display: block; padding: 0.625rem 0; border-top: 1px solid var(--lijn); }
+  .bet-tabel td { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.125rem 0; border: 0; text-align: right; }
+  .bet-tabel td::before { content: attr(data-label); font-size: 0.8125rem; font-weight: 800; color: var(--grijs); text-align: left; }
+  .bet-tabel td.bet-adres { font-weight: 800; }
+  .bet-drop .knop, .bet-knoppen .knop { flex: 1 1 100%; }
+  .bet-tabel td.bet-adres::before { content: none; }
+}
+.strook-ok { background: var(--groen-zacht); color: var(--groen-donker); }

@@ -11,11 +11,12 @@ var LEES_INTERVAL_MS = 30000;       // wacht de pagina op het verwerken van een 
 var LEES_MAX_MS = 600000;           // ... en daar na zo lang mee stoppen (10 minuten)
 var NOG_EEN_POGING_MS = 30000;      // blijft er iets in de wachtrij staan, dan na zo lang opnieuw proberen
 var VERVERS_NA_MS = 60000;          // terugkomen op de pagina na zo lang: opnieuw lezen
-var SCHERM_VOLGORDE = ['overzicht', 'deelnemers', 'wijkregister', 'kas', 'begroting', 'geldbronnen', 'bon', 'commissie'];
+var SCHERM_VOLGORDE = ['overzicht', 'deelnemers', 'wijkregister', 'betalingen', 'kas', 'begroting', 'geldbronnen', 'bon', 'commissie'];
 
 // Pictogrammen: de binnenkant van een svg van 24 bij 24, lijntekening (zoals in de ontwerpen).
 var ICONEN = {
   huis: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  betalingen: '<path d="M4 7h13l-3-3M20 17H7l3 3"/><path d="M12 10v4M10.5 11h2.2a1 1 0 0 1 0 2h-1.4a1 1 0 0 0 0 2H13.5"/>',
   kas: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14.5h2"/>',
   begroting: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   geldbronnen: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M15 11.5c3.4.2 6 1.4 6 3V18c0 1.7-2.7 3-6 3-2.3 0-4.3-.6-5.3-1.6"/>',
@@ -99,6 +100,7 @@ function meervoud_(n, een, meer) { return n + ' ' + (n === 1 ? een : meer); }
 function vergeetDirecteLadingen_() {
   if (typeof deelnemersVergeet === 'function') deelnemersVergeet();
   if (typeof wijkregisterVergeet === 'function') wijkregisterVergeet();
+  if (typeof betalingenSchermVergeet === 'function') betalingenSchermVergeet();
 }
 
 // Vernieuwen: naast de momentopname haalt ook het getoonde scherm zijn eigen gegevens opnieuw op, als het die heeft (scherm.vernieuw).
@@ -144,6 +146,7 @@ function vergeetDirecteLadingenZonderRecht_() {
   var rechten = rechtenNu_();
   if (!heeftRecht(rechten, 'deelnemers_zien') && typeof deelnemersVergeet === 'function') deelnemersVergeet();
   if (!heeftRecht(rechten, 'persoonsgegevens_zien') && typeof wijkregisterVergeet === 'function') wijkregisterVergeet();
+  if (!heeftRecht(rechten, 'betalingen_zien') && typeof betalingenSchermVergeet === 'function') betalingenSchermVergeet();
 }
 
 function bouwStaat_() {
@@ -445,9 +448,12 @@ function bouwSchil_() {
 }
 
 // Een punt van het zijmenu (computer): pictogram en naam van een scherm.
-function menuPunt_(scherm, huidig) {
-  return el('a', { class: 'menu-punt', href: '#' + scherm.naam, 'aria-current': scherm.naam === huidig ? 'page' : null },
-    maakIcoon(scherm.icoon || scherm.naam), el('span', null, menuLabel(scherm)));
+// telling = het getal bij dit scherm (of null), bijvoorbeeld de regels die op een koppeling wachten; het getal staat in de aria-label.
+function menuPunt_(scherm, huidig, telling) {
+  var naam = menuLabel(scherm);
+  return el('a', { class: 'menu-punt', href: '#' + scherm.naam, 'aria-current': scherm.naam === huidig ? 'page' : null, 'aria-label': telling ? menuBadgeNaam(naam, telling) : null },
+    maakIcoon(scherm.icoon || scherm.naam), el('span', null, naam),
+    telling ? el('span', { class: 'menu-getal', 'aria-hidden': 'true' }, telling > 99 ? '99+' : String(telling)) : null);
 }
 
 // Een punt van de balk onderaan (telefoon): alleen het pictogram van de groep; naam in aria-label en title.
@@ -471,12 +477,14 @@ function bonKnopSync_() {
 }
 
 // De tabs bovenaan het scherm (telefoon) als de groep van het huidige scherm er meer dan een heeft; anders niets.
-function menuTabs_(groepen, huidig) {
+function menuTabs_(groepen, huidig, schermTelling) {
   var groep = menuGroepVan(groepen, huidig);
   if (!groep || !groep.tabs) return null;
   return el('nav', { class: 'subtabs', 'aria-label': groep.titel },
     groep.schermen.map(function (s) {
-      return el('a', { class: 'subtab', href: '#' + s.naam, 'aria-current': s.naam === huidig ? 'page' : null }, menuLabel(s));
+      var n = schermTelling && schermTelling[s.naam] ? schermTelling[s.naam] : null;
+      return el('a', { class: 'subtab', href: '#' + s.naam, 'aria-current': s.naam === huidig ? 'page' : null, 'aria-label': n ? menuBadgeNaam(menuLabel(s), n) : null },
+        menuLabel(s), n ? el('span', { class: 'menu-getal', 'aria-hidden': 'true' }, n > 99 ? '99+' : String(n)) : null);
     }));
 }
 
@@ -486,15 +494,16 @@ function tekenMenu_() {
   var lijst = toegestaneSchermen_();
   var groepen = menuGroepenVoor(lijst);
   var zijDelen = [];
+  var schermTelling = menuSchermTelling(beheerApp.momentopname, rechtenNu_());
   groepen.forEach(function (g) {
     if (g.kop) zijDelen.push(el('div', { class: 'menu-kop' }, g.titel));
-    g.schermen.forEach(function (s) { zijDelen.push(menuPunt_(s, beheerApp.huidig)); });
+    g.schermen.forEach(function (s) { zijDelen.push(menuPunt_(s, beheerApp.huidig, schermTelling[s.naam] || null)); });
   });
   zij.replaceChildren.apply(zij, zijDelen);
   var telling = menuTelling(beheerApp.momentopname, rechtenNu_());
   onder.replaceChildren.apply(onder, menuBalkGroepen(groepen).map(function (g) { return menuGroepPunt_(g, beheerApp.huidig, telling[g.naam] || null); }));
   onder.hidden = lijst.length === 0;
-  if (tabs) tabs.replaceChildren.apply(tabs, [menuTabs_(groepen, beheerApp.huidig)].filter(function (k) { return k !== null; }));
+  if (tabs) tabs.replaceChildren.apply(tabs, [menuTabs_(groepen, beheerApp.huidig, schermTelling)].filter(function (k) { return k !== null; }));
   bonKnopSync_();
 }
 
