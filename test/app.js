@@ -71,6 +71,8 @@ async function laadUitnodiging(uitnodiging) {
   let antwoord;
   // het ophalen kan even duren: laat de buur zien dat er iets gebeurt (het formulier blijft zolang verborgen)
   const laden = $('laden');
+  const laadTekst = laden.textContent;
+  const laadWasVerborgen = laden.hidden;
   laden.textContent = 'Je gegevens worden opgehaald…';
   laden.hidden = false;
   try {
@@ -78,7 +80,9 @@ async function laadUitnodiging(uitnodiging) {
   } catch (e) {
     antwoord = null;
   }
-  laden.hidden = true;
+  // de oorspronkelijke tekst en zichtbaarheid terug, ook als we terugvallen op de gewone start
+  laden.textContent = laadTekst;
+  laden.hidden = laadWasVerborgen;
   const code = antwoord && antwoord.code;
   const definitief = !!antwoord && (antwoord.ok === true || ['UITNODIGING_ONGELDIG', 'UITNODIGING_AL_AANGEMELD', 'NOG_NIET_OPEN', 'GESLOTEN'].indexOf(code) !== -1);
   if (!definitief) {
