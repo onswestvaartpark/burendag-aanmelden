@@ -84,7 +84,7 @@ function veldenUitAanmelding(aanmelding, token) {
 }
 
 // Fase 2d: het antwoord van uitnodigingLezen ({ adres, contact, bewoners, spullen }) als formuliervelden, met dezelfde vulling als een aanmelding (veldenUitAanmelding).
-// Zonder token (het wordt een gewone aanmelding), zonder hulp, en met beide toestemmingen uit: de buur vinkt 'bewaren' zelf opnieuw aan; dat is de vernieuwing van de toestemming.
+// Zonder token (het wordt een gewone aanmelding), met de hulpblokken (codes) van het register, en met beide toestemmingen uit: de buur vinkt 'bewaren' zelf opnieuw aan; dat is de vernieuwing van de toestemming.
 function veldenUitUitnodiging(antwoord) {
   var a = antwoord.adres || {};
   var c = antwoord.contact || {};
@@ -101,7 +101,7 @@ function veldenUitUitnodiging(antwoord) {
         dieet: dieet, dieetToelichting: b.dieetToelichting, eetMee: dieet.indexOf('-') === -1, ehbo: b.ehbo === true
       };
     }),
-    hulp: [],
+    hulp: (antwoord.hulp || []).slice(),
     spullen: (antwoord.spullen || []).map(function (s) { return { wat: s.wat, aantal: s.aantal, opmerking: s.opmerking || '' }; })
   };
   return veldenUitAanmelding(aanmelding, '');

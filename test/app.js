@@ -69,11 +69,16 @@ function verwijderUitnodigingUitAdres() {
 // Geeft true als de pagina klaar is (formulier of melding getoond); false als de gewone start verder moet (de aanmeldperiode is niet open).
 async function laadUitnodiging(uitnodiging) {
   let antwoord;
+  // het ophalen kan even duren: laat de buur zien dat er iets gebeurt (het formulier blijft zolang verborgen)
+  const laden = $('laden');
+  laden.textContent = 'Je gegevens worden opgehaald…';
+  laden.hidden = false;
   try {
     antwoord = await haalUitnodiging(uitnodiging);
   } catch (e) {
     antwoord = null;
   }
+  laden.hidden = true;
   const code = antwoord && antwoord.code;
   const definitief = !!antwoord && (antwoord.ok === true || ['UITNODIGING_ONGELDIG', 'UITNODIGING_AL_AANGEMELD', 'NOG_NIET_OPEN', 'GESLOTEN'].indexOf(code) !== -1);
   if (!definitief) {
