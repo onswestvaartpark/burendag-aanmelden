@@ -9,11 +9,11 @@ var MENU_GROEPEN = [
   { naam: 'mensen', titel: 'Mensen', icoon: 'deelnemers', kop: true, schermen: ['deelnemers', 'wijkregister'] },
   { naam: 'financieel', titel: 'Financieel', icoon: 'kas', kop: true, schermen: ['betalingen', 'kas', 'begroting', 'geldbronnen'] },
   { naam: 'bon', titel: 'Bon indienen', icoon: 'bon', kop: false, balk: false, schermen: ['bon'] },
-  { naam: 'instellingen', titel: 'Instellingen', icoon: 'instellingen', kop: true, schermen: ['commissie'] }
+  { naam: 'instellingen', titel: 'Instellingen', icoon: 'instellingen', kop: true, schermen: ['instellingen', 'commissie'] }
 ];
 
 // De naam van een scherm in het menu en in de tabs (anders de titel van het scherm zelf).
-var MENU_LABELS = { overzicht: 'Home', bon: 'Bon indienen', geldbronnen: 'Bronnen', commissie: 'Commissieleden' };
+var MENU_LABELS = { overzicht: 'Home', bon: 'Bon indienen', geldbronnen: 'Bronnen', instellingen: 'Instellingen', commissie: 'Commissieleden' };
 
 function menuLabel(scherm) {
   return MENU_LABELS[scherm.naam] || scherm.titel || scherm.naam;

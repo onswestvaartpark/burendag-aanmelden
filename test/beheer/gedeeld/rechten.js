@@ -1,7 +1,7 @@
 // Rechten en rollen van de beheerpagina. Alleen function/var op het hoogste niveau
 // (het bestand draait ook in de browser en in Apps Script). Interne hulpfuncties eindigen op _.
 
-var RECHTEN = ['overzicht_zien', 'deelnemers_zien', 'persoonsgegevens_zien', 'deelnemer_bewerken', 'betalingen_zien', 'bank_inlezen', 'betalingen_koppelen', 'herinneringen_versturen', 'bon_indienen', 'kas_zien', 'kas_bewerken', 'kascontrole_doen', 'begroting_zien', 'begroting_bewerken', 'geldbronnen_zien', 'geldbronnen_bewerken', 'verslag_maken', 'opschonen', 'mails_versturen', 'instellingen_bewerken', 'leden_beheren'];
+var RECHTEN = ['overzicht_zien', 'deelnemers_zien', 'persoonsgegevens_zien', 'deelnemer_bewerken', 'betalingen_zien', 'bank_inlezen', 'betalingen_koppelen', 'herinneringen_versturen', 'bon_indienen', 'kas_zien', 'kas_bewerken', 'kascontrole_doen', 'begroting_zien', 'begroting_bewerken', 'geldbronnen_zien', 'geldbronnen_bewerken', 'verslag_maken', 'opschonen', 'mails_versturen', 'instellingen_beheren', 'leden_beheren'];
 
 var STANDAARD_ROLLEN = {
   'Beheerder': {
@@ -9,7 +9,7 @@ var STANDAARD_ROLLEN = {
     omschrijving: 'Mag alles, ook de leden en de instellingen beheren.'
   },
   'Penningmeester': {
-    rechten: RECHTEN.filter(function (r) { return r !== 'instellingen_bewerken' && r !== 'leden_beheren' && r !== 'opschonen'; }),
+    rechten: RECHTEN.filter(function (r) { return r !== 'instellingen_beheren' && r !== 'leden_beheren' && r !== 'opschonen'; }),
     omschrijving: 'Beheert het geld en de deelnemers, maar niet de leden en instellingen.'
   },
   'Kascontroleur': {

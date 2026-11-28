@@ -31,7 +31,7 @@ var COMMISSIE_RECHT_TEKSTEN = {
   geldbronnen_zien: ['Geldbronnen bekijken', 'Zien waar het geld vandaan komt, zoals sponsors en subsidies.'],
   geldbronnen_bewerken: ['Geldbronnen bijhouden', 'Sponsors, subsidies en giften toevoegen of wijzigen.'],
   opschonen: ['Oude gegevens opschonen', 'Persoonsgegevens wissen als ze niet meer nodig zijn.'],
-  instellingen_bewerken: ['Instellingen aanpassen', 'Data, bedragen en teksten van de editie wijzigen.'],
+  instellingen_beheren: ['Instellingen beheren', 'Het scherm Instellingen: datums, bedragen, lijsten en mailteksten wijzigen.'],
   leden_beheren: ['De commissie beheren', 'Leden toevoegen en rollen en rechten aanpassen (dit scherm).']
 };
 var COMMISSIE_THEMAS = [
@@ -39,7 +39,7 @@ var COMMISSIE_THEMAS = [
   { naam: 'Deelnemers en betalingen', rechten: ['deelnemers_zien', 'persoonsgegevens_zien', 'deelnemer_bewerken', 'betalingen_zien', 'bank_inlezen', 'betalingen_koppelen', 'herinneringen_versturen', 'mails_versturen'] },
   { naam: 'Kas', rechten: ['kas_zien', 'kas_bewerken', 'bon_indienen', 'kascontrole_doen', 'verslag_maken'] },
   { naam: 'Geld voor 2027', rechten: ['begroting_zien', 'begroting_bewerken', 'geldbronnen_zien', 'geldbronnen_bewerken'] },
-  { naam: 'Beheer', rechten: ['opschonen', 'instellingen_bewerken', 'leden_beheren'] }
+  { naam: 'Beheer', rechten: ['opschonen', 'instellingen_beheren', 'leden_beheren'] }
 ];
 
 // De stand van het scherm; blijft bestaan als je naar een ander scherm gaat (het concept gaat niet verloren).

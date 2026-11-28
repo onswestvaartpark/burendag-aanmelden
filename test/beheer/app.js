@@ -11,7 +11,7 @@ var LEES_INTERVAL_MS = 30000;       // wacht de pagina op het verwerken van een 
 var LEES_MAX_MS = 600000;           // ... en daar na zo lang mee stoppen (10 minuten)
 var NOG_EEN_POGING_MS = 30000;      // blijft er iets in de wachtrij staan, dan na zo lang opnieuw proberen
 var VERVERS_NA_MS = 60000;          // terugkomen op de pagina na zo lang: opnieuw lezen
-var SCHERM_VOLGORDE = ['overzicht', 'deelnemers', 'wijkregister', 'betalingen', 'kas', 'begroting', 'geldbronnen', 'bon', 'commissie'];
+var SCHERM_VOLGORDE = ['overzicht', 'deelnemers', 'wijkregister', 'betalingen', 'kas', 'begroting', 'geldbronnen', 'bon', 'instellingen', 'commissie'];
 
 // Pictogrammen: de binnenkant van een svg van 24 bij 24, lijntekening (zoals in de ontwerpen).
 var ICONEN = {
@@ -101,6 +101,7 @@ function vergeetDirecteLadingen_() {
   if (typeof deelnemersVergeet === 'function') deelnemersVergeet();
   if (typeof wijkregisterVergeet === 'function') wijkregisterVergeet();
   if (typeof betalingenSchermVergeet === 'function') betalingenSchermVergeet();
+  if (typeof instellingenSchermVergeet === 'function') instellingenSchermVergeet();
 }
 
 // Vernieuwen: naast de momentopname haalt ook het getoonde scherm zijn eigen gegevens opnieuw op, als het die heeft (scherm.vernieuw).
@@ -147,6 +148,7 @@ function vergeetDirecteLadingenZonderRecht_() {
   if (!heeftRecht(rechten, 'deelnemers_zien') && typeof deelnemersVergeet === 'function') deelnemersVergeet();
   if (!heeftRecht(rechten, 'persoonsgegevens_zien') && typeof wijkregisterVergeet === 'function') wijkregisterVergeet();
   if (!heeftRecht(rechten, 'betalingen_zien') && typeof betalingenSchermVergeet === 'function') betalingenSchermVergeet();
+  if (!heeftRecht(rechten, 'instellingen_beheren') && typeof instellingenSchermVergeet === 'function') instellingenSchermVergeet();
 }
 
 function bouwStaat_() {
