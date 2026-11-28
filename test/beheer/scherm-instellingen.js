@@ -10,7 +10,7 @@ var instellingenLading = maakDirecteLading('beheerInstellingen');
 
 // De stand van het scherm; blijft bestaan als je naar een ander scherm gaat (het concept gaat niet verloren, tot je bevestigt dat het weg mag).
 var instApp = {
-  email: null, basis: null, concept: null, plaats: {}, hash: {},
+  email: null, basis: null, concept: null, plaats: {}, hash: {}, hashVers: {},
   open: 'editie', mailKies: null, mailVeld: 'tekst', techOpen: false, slotVraag: null,
   wacht: {}, voorBasis: {}, serverFouten: {}, aangeraakt: {}, toonFouten: false, klaar: false, melding: '',
   container: null, staat: null, voorbeeldVak: null
@@ -18,7 +18,7 @@ var instApp = {
 
 function instellingenSchermVergeet() {
   instellingenLading.vergeet();
-  instApp.email = null; instApp.basis = null; instApp.concept = null; instApp.plaats = {}; instApp.hash = {};
+  instApp.email = null; instApp.basis = null; instApp.concept = null; instApp.plaats = {}; instApp.hash = {}; instApp.hashVers = {};
   instApp.wacht = {}; instApp.voorBasis = {}; instApp.serverFouten = {}; instApp.aangeraakt = {}; instApp.toonFouten = false; instApp.klaar = false; instApp.melding = '';
   instApp.slotVraag = null; instApp.container = null; instApp.staat = null;
   instApp.open = 'editie'; instApp.mailKies = null; instApp.mailVeld = 'tekst'; instApp.techOpen = false;
@@ -59,6 +59,9 @@ function instNaLading_() {
         instApp.basis[n] = instKopie_(data.secties[n]);
         // de vingerafdruk waarop een wijziging is gebaseerd blijft staan zolang er een concept is: zo merkt de server dat iemand anders intussen iets veranderde
         if (!vuil) { instApp.concept[n] = instKopie_(data.secties[n]); instApp.hash[n] = instvBasis(n, data.secties[n]); }
+        // na een eigen opslag is de Sheet door ons veranderd: de vingerafdruk daarvan is de nieuwe basis, ook als je intussen weer verder bent gaan typen
+        else if (instApp.hashVers[n]) instApp.hash[n] = instvBasis(n, data.secties[n]);
+        delete instApp.hashVers[n];
       });
     }
   }
@@ -85,7 +88,7 @@ function instVerwerkUitkomsten_(staat) {
     verandering = true;
     if (u.status === 'klaar') {
       delete instApp.voorBasis[sectie];
-      instApp.klaar = true; verversen = true;
+      instApp.klaar = true; verversen = true; instApp.hashVers[sectie] = true;
     } else {
       // niet gelukt: de oude stand terug als opgeslagen stand; het concept blijft staan, zodat niets verloren gaat
       instApp.basis[sectie] = instApp.voorBasis[sectie] || instApp.basis[sectie];
@@ -122,7 +125,7 @@ function instOpslaan_() {
   var wachtend = vuil.filter(function (n) { return instApp.wacht[n]; });
   if (wachtend.length > 0) {
     vuil = vuil.filter(function (n) { return !instApp.wacht[n]; });
-    if (vuil.length === 0) { instApp.melding = 'Even geduld: ' + wachtend.map(instTitel_).join(', ') + ' wordt nog verwerkt. Daarna kun je opnieuw opslaan.'; instVerfris_(); return; }
+    if (vuil.length === 0) { instApp.melding = wachtend.map(instTitel_).join(', ') + ' wordt nog verwerkt. Daarna kun je opnieuw opslaan.'; instVerfris_(); return; }
   }
   if (instOpSlot_()) { instApp.melding = 'De editie staat op slot. Haal eerst het slot eraf bij "Editie op slot".'; instVerfris_(); return; }
   instApp.toonFouten = true;
@@ -137,12 +140,18 @@ function instOpslaan_() {
     return;
   }
   instStuur_(vuil);
+  if (wachtend.length > 0) instApp.melding = wachtend.map(instTitel_).join(', ') + ' wordt nog verwerkt: de nieuwste wijziging daarin is nog niet opgeslagen.';
   instTeken_(instApp.container);
 }
 
 function instAnnuleren_() {
   if (!instApp.basis) return;
-  INSTV_SECTIES.forEach(function (s) { if (!instApp.wacht[s.naam]) instApp.concept[s.naam] = instKopie_(instApp.basis[s.naam]); });
+  // het concept terug op de stand van de server; de vingerafdruk gaat mee, anders klopt hij niet met de stand waarop je daarna verder bouwt
+  INSTV_SECTIES.forEach(function (s) {
+    if (instApp.wacht[s.naam]) return;
+    instApp.concept[s.naam] = instKopie_(instApp.basis[s.naam]);
+    instApp.hash[s.naam] = instvBasis(s.naam, instApp.basis[s.naam]);
+  });
   instApp.aangeraakt = {}; instApp.toonFouten = false; instApp.melding = ''; instApp.serverFouten = {}; instApp.slotVraag = null; instApp.klaar = false;
   instTeken_(instApp.container);
 }
